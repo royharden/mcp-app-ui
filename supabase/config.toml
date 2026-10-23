@@ -1,0 +1,4 @@
+project_id = "mcp-app-ui"
+
+[functions.approval-decision]
+verify_jwt = true

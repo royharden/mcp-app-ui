@@ -1,0 +1,4 @@
+[
+  { "id": "light-inline", "theme": "light", "displayMode": "inline", "locale": "en-US" },
+  { "id": "dark-fullscreen", "theme": "dark", "displayMode": "fullscreen", "locale": "en-US" }
+]

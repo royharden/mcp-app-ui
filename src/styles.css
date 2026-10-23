@@ -1,0 +1,115 @@
+:root {
+  color: #1e1a16;
+  background: #efe7d6;
+  font-family: "Segoe UI", sans-serif;
+  line-height: 1.45;
+}
+
+* { box-sizing: border-box; }
+
+body { margin: 0; }
+
+button, input, textarea, select {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  background: #1f6b4a;
+  color: #f7f3ea;
+  border: 0;
+  border-radius: 4px;
+  padding: 0.45rem 0.75rem;
+  cursor: pointer;
+}
+
+button.danger { background: #8d2f2a; }
+
+button:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.page {
+  max-width: 880px;
+  margin: 0 auto;
+  padding: 2rem 1.25rem 3rem;
+}
+
+.mast h1 {
+  font-family: Georgia, "Iowan Old Style", serif;
+  font-size: 2.4rem;
+  margin: 0.2rem 0;
+}
+
+.eyebrow, .colophon, .muted {
+  color: #5e564c;
+  font-size: 0.92rem;
+}
+
+.lede { max-width: 40rem; }
+
+.banner, .notice {
+  background: #fff8e8;
+  border: 1px solid #e0c98a;
+  padding: 0.75rem 1rem;
+}
+
+.tabs { display: flex; gap: 0.5rem; margin: 1rem 0; }
+
+.tab { background: transparent; color: #1e1a16; border: 1px solid #cfc4b0; }
+
+.tab.active { background: #1e1a16; color: #f7f3ea; }
+
+.stack { display: grid; gap: 1rem; }
+
+.panel {
+  background: #fffdf8;
+  border: 1px solid #ddd4c4;
+  padding: 1rem;
+}
+
+.cards { list-style: none; padding: 0; display: grid; gap: 0.75rem; }
+
+.card { border-top: 3px solid #1f6b4a; padding-top: 0.5rem; }
+
+.card-top, .row-actions { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
+
+.change { font-family: Georgia, serif; }
+
+.risk {
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: 0.75rem;
+  border: 1px solid currentColor;
+  padding: 0.1rem 0.35rem;
+}
+
+.risk-high { color: #8d2f2a; }
+.risk-medium { color: #8a5a12; }
+.risk-low { color: #1f6b4a; }
+
+.form, .confirm { display: grid; gap: 0.6rem; }
+
+label { display: grid; gap: 0.25rem; }
+
+.check { display: flex; gap: 0.5rem; align-items: center; }
+
+input, textarea, select {
+  border: 1px solid #cfc4b0;
+  background: #fff;
+  padding: 0.4rem;
+}
+
+textarea { min-height: 4.5rem; }
+
+pre {
+  white-space: pre-wrap;
+  background: #f6f1e6;
+  padding: 0.75rem;
+}
+
+table { width: 100%; border-collapse: collapse; }
+
+th, td { text-align: left; vertical-align: top; border-bottom: 1px solid #ddd4c4; padding: 0.45rem; }
+
+.replay ol { padding-left: 1.2rem; }
+
+.colophon { margin-top: 2rem; }
