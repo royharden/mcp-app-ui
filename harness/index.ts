@@ -6,7 +6,7 @@ import type { TraceIdentity } from "./recorder.ts";
 
 export { createRecorder, TraceOverflowError, MAX_EVENTS, MAX_EVENT_BYTES, MAX_TOTAL_BYTES } from "./recorder.ts";
 export { renderInHarness, serverFixture, waitForReady, createHarnessFrame } from "./host.ts";
-export { runScenario, ScenarioSchema } from "./scenario.ts";
+export { runScenario, ScenarioError, ScenarioSchema } from "./scenario.ts";
 export { waitFor, viewDriver } from "./dom.ts";
 
 export const BUILT_VIEW = { html: VIEW_HTML, sha256: VIEW_HTML_SHA256, datasetSha256: DATASET_SHA256 };

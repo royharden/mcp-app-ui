@@ -160,8 +160,11 @@ export async function renderInHarness(options: RenderOptions): Promise<RenderedV
     controller.deliverResult(result);
   } catch (error) {
     // Never leak the frame or the server when start-up fails.
-    await controller.teardown();
-    await fixture.close();
+    try {
+      await controller.teardown();
+    } finally {
+      await fixture.close();
+    }
     throw error;
   }
 

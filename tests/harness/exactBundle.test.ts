@@ -8,20 +8,26 @@ import { afterEach, describe, expect, it } from "vitest";
 import { BUILT_VIEW, baseIdentity, createRecorder, renderInHarness, waitFor, waitForReady } from "../../harness/index.ts";
 import type { RenderedView } from "../../harness/host.ts";
 
+const recorders: Array<ReturnType<typeof createRecorder>> = [];
+
 function recorder() {
-  return createRecorder({
+  const r = createRecorder({
     ...baseIdentity(),
     scenarioId: "exact-bundle",
     mode: "realHandlers",
     rawHtmlSha256: BUILT_VIEW.sha256,
     envelopeSha256: null,
   });
+  recorders.push(r);
+  return r;
 }
 
 describe("exact view bundle in the harness", () => {
   let rendered: RenderedView | null = null;
   afterEach(async () => {
     await rendered?.close();
+    // A recorder overflow in a direct render must fail the test, not pass silently.
+    for (const r of recorders.splice(0)) r.assertComplete();
     rendered = null;
   });
 

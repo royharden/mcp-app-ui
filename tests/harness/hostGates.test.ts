@@ -10,8 +10,12 @@ import type { RenderedView } from "../../harness/host.ts";
 import { createHostController, type ViewFrame } from "../../src/lab/hostController.ts";
 import type { ProtocolLog } from "../../src/lab/protocolLog.ts";
 
+const recorders: Array<ReturnType<typeof createRecorder>> = [];
+
 function newRecorder(id: string) {
-  return createRecorder({ ...baseIdentity(), scenarioId: id, mode: "realHandlers", rawHtmlSha256: null, envelopeSha256: null });
+  const r = createRecorder({ ...baseIdentity(), scenarioId: id, mode: "realHandlers", rawHtmlSha256: null, envelopeSha256: null });
+  recorders.push(r);
+  return r;
 }
 
 /** Runs `source` as a classic script inside the given document's window. */
@@ -34,6 +38,8 @@ describe("host gates", () => {
   let rendered: RenderedView | null = null;
   afterEach(async () => {
     await rendered?.close();
+    // A recorder overflow in a direct render must fail the test, not pass silently.
+    for (const r of recorders.splice(0)) r.assertComplete();
     rendered = null;
     document.body.innerHTML = "";
   });
