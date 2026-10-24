@@ -82,7 +82,9 @@ export function Queue({ snapshot, onQuery, onSelect }: QueueProps) {
           {queueError}
         </p>
       ) : null}
-      {queue ? <QueueTable queue={queue} selectedId={selection.id} onSelect={onSelect} /> : null}
+      {queue ? (
+        <QueueTable queue={queue} selectedId={selection.id} canOpen={snapshot.phase === "ready"} onSelect={onSelect} />
+      ) : null}
       {!queue && !queueError ? <p className="muted">{queueLoading ? "Loading…" : "Waiting for queue data."}</p> : null}
       {queue ? <Pager queue={queue} disabled={disabled} onQuery={onQuery} /> : null}
     </section>
@@ -115,7 +117,12 @@ function FilterSelect(props: {
   );
 }
 
-function QueueTable(props: { queue: QueueOutput; selectedId: string | null; onSelect: (id: string) => void }) {
+function QueueTable(props: {
+  queue: QueueOutput;
+  selectedId: string | null;
+  canOpen: boolean;
+  onSelect: (id: string) => void;
+}) {
   const { queue } = props;
   return (
     <>
@@ -153,7 +160,13 @@ function QueueTable(props: { queue: QueueOutput; selectedId: string | null; onSe
                 <td className="num">{row.amountText}</td>
                 <td>{row.status}</td>
                 <td>
-                  <button type="button" data-action="select" data-id={row.id} onClick={() => props.onSelect(row.id)}>
+                  <button
+                    type="button"
+                    data-action="select"
+                    data-id={row.id}
+                    disabled={!props.canOpen}
+                    onClick={() => props.onSelect(row.id)}
+                  >
                     Open<span className="visually-hidden"> {row.id}</span>
                   </button>
                 </td>

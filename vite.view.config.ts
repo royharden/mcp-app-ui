@@ -10,7 +10,6 @@ export default defineConfig({
     outDir: "dist/view",
     emptyOutDir: true,
     cssCodeSplit: false,
-    assetsInlineLimit: 0,
     lib: {
       entry: "view/main.tsx",
       formats: ["iife"],

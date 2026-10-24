@@ -125,8 +125,10 @@ export function Detail({ snapshot, onDecision, onReason, onPrepare, onTellAssist
 }
 
 function Outcome(props: { snapshot: ViewSnapshot; onTellAssistant: () => void; messageStatus: string }) {
-  const { submit, message, canMessage, phase } = props.snapshot;
+  const { submit, message, canMessage, phase, selection } = props.snapshot;
   if (submit.status === "idle" || submit.status === "submitting") return null;
+  // Outcomes belong to the request they were submitted for.
+  if (submit.forId !== selection.id) return null;
   if (submit.status === "unknown") {
     return (
       <div role="status" className="outcome warn" data-outcome="unknown">

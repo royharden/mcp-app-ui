@@ -8,19 +8,32 @@ interface ConfirmDialogProps {
   onConfirm: () => void;
 }
 
+/** Where focus goes when the dialog closes: the Review button, else the drawer heading. */
+function returnFocus(): void {
+  const prepare = document.querySelector<HTMLElement>('[data-action="prepare"]:not([disabled])');
+  const heading = document.getElementById("detail-heading");
+  (prepare ?? heading)?.focus();
+}
+
 /**
  * Focus-managed confirmation. The statement is the server's exact string, rendered as text.
- * Escape cancels; Tab stays inside the dialog; focus returns to the opener on close.
+ * Escape cancels; Tab stays inside the dialog; while recording, focus rests on the dialog
+ * heading so it never falls out of the modal; on close focus returns to the drawer.
  */
 export function ConfirmDialog({ prepared, submitting, onCancel, onConfirm }: ConfirmDialogProps) {
   const dialogRef = useRef<HTMLDivElement>(null);
+  const headingRef = useRef<HTMLHeadingElement>(null);
   const cancelRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
-    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     cancelRef.current?.focus();
-    return () => opener?.focus();
+    // The opener (Review button) is disabled while preparing, so return focus explicitly.
+    return () => returnFocus();
   }, []);
+
+  useEffect(() => {
+    if (submitting) headingRef.current?.focus();
+  }, [submitting]);
 
   function onKeyDown(event: KeyboardEvent<HTMLDivElement>) {
     if (event.key === "Escape" && !submitting) {
@@ -30,7 +43,11 @@ export function ConfirmDialog({ prepared, submitting, onCancel, onConfirm }: Con
     }
     if (event.key !== "Tab" || !dialogRef.current) return;
     const focusable = Array.from(dialogRef.current.querySelectorAll<HTMLElement>("button:not([disabled])"));
-    if (focusable.length === 0) return;
+    if (focusable.length === 0) {
+      event.preventDefault();
+      headingRef.current?.focus();
+      return;
+    }
     const first = focusable[0];
     const last = focusable[focusable.length - 1];
     if (event.shiftKey && document.activeElement === first) {
@@ -53,7 +70,9 @@ export function ConfirmDialog({ prepared, submitting, onCancel, onConfirm }: Con
         className="dialog"
         onKeyDown={onKeyDown}
       >
-        <h2 id="confirm-heading">Confirm this exact statement</h2>
+        <h2 id="confirm-heading" ref={headingRef} tabIndex={-1}>
+          Confirm this exact statement
+        </h2>
         <p id="confirm-statement" className="statement" data-field="statement">
           {prepared.statement}
         </p>

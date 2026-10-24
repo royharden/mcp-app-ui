@@ -27,8 +27,16 @@ const cssFiles = readdirSync(distView).filter((f) => f.endsWith(".css"));
 if (cssFiles.length > 1) fail(`expected at most one stylesheet, found ${cssFiles.join(", ")}`);
 const style = cssFiles.length === 1 ? read(join(distView, cssFiles[0])) : "";
 
-// An inline classic script ends at the first "</script"; escape every occurrence.
-const safeScript = script.replace(/<\/script/gi, "<\\/script");
+// An inline classic script ends at the first "</script", and "<!--" followed by "<script" can
+// put the HTML parser into its escaped state. Rewrite all three sequences with an escape that
+// means the same "<" inside string, template and regex literals (where a bundle has them). If
+// one ever occurred in code position the bundle would fail to parse loudly in the exact-bundle
+// harness, not silently.
+const LT = "\\x3C";
+const safeScript = script
+  .replace(/<\/script/gi, `${LT}/script`)
+  .replace(/<script/gi, `${LT}script`)
+  .replace(/<!--/g, `${LT}!--`);
 const safeStyle = style.replace(/<\/style/gi, "<\\/style");
 
 for (const marker of ["/*__VIEW_STYLE__*/", "/*__VIEW_SCRIPT__*/"]) {
@@ -36,9 +44,12 @@ for (const marker of ["/*__VIEW_STYLE__*/", "/*__VIEW_SCRIPT__*/"]) {
 }
 const html = template.replace("/*__VIEW_STYLE__*/", () => safeStyle).replace("/*__VIEW_SCRIPT__*/", () => safeScript);
 
-if (/<script[^>]*\bsrc=/i.test(html)) fail("external script reference found");
-if (/<script[^>]*type=["']?module/i.test(html)) fail("module script found; the view must be a classic IIFE");
-if (/<link[^>]*rel=["']?stylesheet/i.test(html)) fail("external stylesheet found");
+// Check the template's own tags, not the bundle: minified React contains "<script>" text
+// inside string literals, which is inert once the bundle sits inside one script element.
+if ((template.match(/<script\b/gi) ?? []).length !== 1) fail("template must contain exactly one <script> element");
+if (/<script\b[^>]*\b(src|type)\s*=/i.test(template)) fail("template script must be a classic inline script");
+if (/<link\b[^>]*rel=["']?stylesheet/i.test(template)) fail("template must not reference external stylesheets");
+if (/<\/script|<script|<!--/i.test(safeScript) || /<\/style/i.test(safeStyle)) fail("escaping failed");
 
 const sha256Hex = (text: string) => createHash("sha256").update(text, "utf8").digest("hex");
 const sha256B64 = (text: string) => createHash("sha256").update(text, "utf8").digest("base64");

@@ -83,7 +83,8 @@ export interface ViewSnapshot {
   };
   draft: { decision: Decision | null; reason: string };
   preparation: { status: "idle" | "preparing" | "ready" | "failed"; prepared: PrepareOutput | null; error: string | null };
-  submit: { status: SubmitStatus; result: SubmitOutput | null; error: string | null };
+  /** `forId` ties an outcome to the request it was submitted for. */
+  submit: { status: SubmitStatus; result: SubmitOutput | null; error: string | null; forId: string | null };
   message: { status: MessageStatus; error: string | null };
   announcement: string;
 }
@@ -107,7 +108,7 @@ function initialSnapshot(): ViewSnapshot {
     selection: { id: null, generation: 0, detail: null, loading: false, error: null },
     draft: { decision: null, reason: "" },
     preparation: { status: "idle", prepared: null, error: null },
-    submit: { status: "idle", result: null, error: null },
+    submit: { status: "idle", result: null, error: null, forId: null },
     message: { status: "idle", error: null },
     announcement: "",
   };
@@ -150,7 +151,13 @@ export function createViewSession(connector: Connector, options: { initTimeoutMs
   let connection = 0;
   // Local query sequence: a result applies only if it belongs to the newest query.
   let querySeq = 0;
+  // Preparation sequence: bumped on every prepare and every invalidation; a prepare result
+  // applies only if its sequence is still current.
+  let prepareSeq = 0;
+  // `closed`: no further effects are applied (host closed the desk or final teardown ran).
+  // `tornDown`: final teardown (listeners detached, App and transport closed) has run.
   let closed = false;
+  let tornDown = false;
 
   function set(patch: Partial<ViewSnapshot>): void {
     snapshot = { ...snapshot, ...patch };
@@ -161,11 +168,16 @@ export function createViewSession(connector: Connector, options: { initTimeoutMs
     return { announcement: text };
   }
 
+  function invalidatePreparation(): Partial<ViewSnapshot> {
+    prepareSeq += 1;
+    return { preparation: { status: "idle", prepared: null, error: null } };
+  }
+
   function resetDecision(): Partial<ViewSnapshot> {
     return {
+      ...invalidatePreparation(),
       draft: { decision: null, reason: "" },
-      preparation: { status: "idle", prepared: null, error: null },
-      submit: { status: "idle", result: null, error: null },
+      submit: { status: "idle", result: null, error: null, forId: null },
       message: { status: "idle", error: null },
     };
   }
@@ -220,10 +232,12 @@ export function createViewSession(connector: Connector, options: { initTimeoutMs
       applyHostContext(params);
     };
     next.onteardown = () => {
-      // Host-initiated teardown: stop applying late results; the host removes the frame.
+      // Host-initiated teardown: stop applying late results now, answer the host, then run
+      // the final teardown (close App/transport, detach listeners) once this reply is sent.
       if (attempt === connection) {
         closed = true;
         set({ phase: "closed", ...announce("The desk was closed by the host.") });
+        setTimeout(() => void teardown(), 0);
       }
       return {};
     };
@@ -264,7 +278,12 @@ export function createViewSession(connector: Connector, options: { initTimeoutMs
     return snapshot.phase === "ready" && !closed ? app : null;
   }
 
-  async function runQuery(partial: QueryInput): Promise<void> {
+  /**
+   * `userInitiated` filter/page changes invalidate an open preparation. The refresh after a
+   * recorded decision does not. Neither closes the drawer: the selected request is loaded by
+   * id and stays valid even when its row is not on the current page.
+   */
+  async function runQuery(partial: QueryInput, options: { userInitiated: boolean }): Promise<void> {
     const current = readyApp();
     if (!current) return;
     const merged: QueryInput = {
@@ -278,7 +297,8 @@ export function createViewSession(connector: Connector, options: { initTimeoutMs
     };
     const seq = ++querySeq;
     const wanted = querySignature(normalizeQuery(merged));
-    set({ queueLoading: true, queueError: null, preparation: { status: "idle", prepared: null, error: null } });
+    const invalidate = options.userInitiated && snapshot.submit.status !== "submitting";
+    set({ queueLoading: true, queueError: null, ...(invalidate ? invalidatePreparation() : {}) });
     try {
       const result = await current.callServerTool({ name: "list_approvals", arguments: merged }, { timeout: READ_TIMEOUT_MS });
       if (seq !== querySeq || closed) {
@@ -294,18 +314,11 @@ export function createViewSession(connector: Connector, options: { initTimeoutMs
         set({ queueLoading: false, queueError: "The queue result did not match the requested query." });
         return;
       }
-      const keepSelection = snapshot.selection.id !== null && parsed.data.rows.some((r) => r.id === snapshot.selection.id);
       set({
         queue: parsed.data,
         query: parsed.data.query,
         queueSource: "query",
         queueLoading: false,
-        ...(keepSelection
-          ? {}
-          : {
-              selection: { id: null, generation: snapshot.selection.generation + 1, detail: null, loading: false, error: null },
-              ...resetDecision(),
-            }),
         ...announce(`Showing ${parsed.data.rows.length} of ${parsed.data.total} matching requests.`),
       });
     } catch (error) {
@@ -338,27 +351,34 @@ export function createViewSession(connector: Connector, options: { initTimeoutMs
 
   function select(id: string | null): void {
     const generation = snapshot.selection.generation + 1;
+    const canLoad = id !== null && readyApp() !== null;
     set({
-      selection: { id, generation, detail: null, loading: id !== null, error: null },
+      selection: {
+        id,
+        generation,
+        detail: null,
+        loading: canLoad,
+        error: id !== null && !canLoad ? "Not connected; the request cannot be loaded." : null,
+      },
       ...resetDecision(),
     });
-    if (id !== null) void loadDetail(id, generation);
+    if (canLoad && id !== null) void loadDetail(id, generation);
   }
 
   function setDecision(decision: Decision): void {
     // Changing the decision discards any preparation.
     set({
+      ...invalidatePreparation(),
       draft: { ...snapshot.draft, decision },
-      preparation: { status: "idle", prepared: null, error: null },
-      submit: { status: "idle", result: null, error: null },
+      submit: { status: "idle", result: null, error: null, forId: null },
     });
   }
 
   function setReason(reason: string): void {
     set({
+      ...invalidatePreparation(),
       draft: { ...snapshot.draft, reason },
-      preparation: { status: "idle", prepared: null, error: null },
-      submit: { status: "idle", result: null, error: null },
+      submit: { status: "idle", result: null, error: null, forId: null },
     });
   }
 
@@ -367,15 +387,16 @@ export function createViewSession(connector: Connector, options: { initTimeoutMs
     const { id, generation, detail } = snapshot.selection;
     const { decision, reason } = snapshot.draft;
     if (!current || !id || !detail || !decision || snapshot.preparation.status === "preparing") return;
+    if (snapshot.submit.status === "submitting") return;
+    const seq = ++prepareSeq;
     set({ preparation: { status: "preparing", prepared: null, error: null } });
     try {
       const result = await current.callServerTool(
         { name: "prepare_decision", arguments: { id, decision, reason } },
         { timeout: READ_TIMEOUT_MS },
       );
-      if (generation !== snapshot.selection.generation || closed) return;
-      // A draft edit during the call made this preparation stale.
-      if (snapshot.draft.decision !== decision || snapshot.draft.reason !== reason) return;
+      // A selection change, draft edit, filter change or cancel during the call made it stale.
+      if (seq !== prepareSeq || generation !== snapshot.selection.generation || closed) return;
       if (result.isError) {
         set({ preparation: { status: "failed", prepared: null, error: resultError(result) } });
         return;
@@ -393,14 +414,14 @@ export function createViewSession(connector: Connector, options: { initTimeoutMs
       }
       set({ preparation: { status: "ready", prepared: parsed.data, error: null }, ...announce("Review the exact statement.") });
     } catch (error) {
-      if (generation !== snapshot.selection.generation || closed) return;
+      if (seq !== prepareSeq || generation !== snapshot.selection.generation || closed) return;
       set({ preparation: { status: "failed", prepared: null, error: errorText(error) } });
     }
   }
 
   function cancelConfirm(): void {
     if (snapshot.submit.status === "submitting") return;
-    set({ preparation: { status: "idle", prepared: null, error: null }, ...announce("Confirmation cancelled. Nothing was recorded.") });
+    set({ ...invalidatePreparation(), ...announce("Confirmation cancelled. Nothing was recorded.") });
   }
 
   async function refreshAfterUncertainOutcome(id: string, generation: number): Promise<void> {
@@ -414,7 +435,8 @@ export function createViewSession(connector: Connector, options: { initTimeoutMs
     const prepared = snapshot.preparation.prepared;
     const { generation } = snapshot.selection;
     if (!current || !prepared || snapshot.submit.status === "submitting") return;
-    set({ submit: { status: "submitting", result: null, error: null } });
+    const forId = prepared.id;
+    set({ submit: { status: "submitting", result: null, error: null, forId } });
     let result: CallToolResult;
     try {
       result = await current.callServerTool(
@@ -429,8 +451,8 @@ export function createViewSession(connector: Connector, options: { initTimeoutMs
       // recorded. Show that, refresh the detail and let the person inspect version/history.
       if (closed) return;
       set({
-        preparation: { status: "idle", prepared: null, error: null },
-        submit: { status: "unknown", result: null, error: errorText(error) },
+        ...invalidatePreparation(),
+        submit: { status: "unknown", result: null, error: errorText(error), forId },
         ...announce("Outcome unknown. Refreshing the request."),
       });
       if (generation === snapshot.selection.generation) await refreshAfterUncertainOutcome(prepared.id, generation);
@@ -440,8 +462,8 @@ export function createViewSession(connector: Connector, options: { initTimeoutMs
     if (closed) return;
     if (result.isError) {
       set({
-        preparation: { status: "idle", prepared: null, error: null },
-        submit: { status: "failed", result: null, error: resultError(result) },
+        ...invalidatePreparation(),
+        submit: { status: "failed", result: null, error: resultError(result), forId },
         ...announce("The decision was not recorded."),
       });
       return;
@@ -449,20 +471,20 @@ export function createViewSession(connector: Connector, options: { initTimeoutMs
     const parsed = SubmitOutputSchema.safeParse(result.structuredContent);
     if (!parsed.success) {
       set({
-        preparation: { status: "idle", prepared: null, error: null },
-        submit: { status: "unknown", result: null, error: "The submit result did not match the schema." },
+        ...invalidatePreparation(),
+        submit: { status: "unknown", result: null, error: "The submit result did not match the schema.", forId },
       });
       if (generation === snapshot.selection.generation) await refreshAfterUncertainOutcome(prepared.id, generation);
       return;
     }
     set({
-      preparation: { status: "idle", prepared: null, error: null },
-      submit: { status: "recorded", result: parsed.data, error: null },
+      ...invalidatePreparation(),
+      submit: { status: "recorded", result: parsed.data, error: null, forId },
       message: { status: "idle", error: null },
       ...announce(`Decision recorded: ${parsed.data.id} ${parsed.data.decision}.`),
     });
     if (generation === snapshot.selection.generation) void loadDetail(prepared.id, generation);
-    void runQuery({ offset: snapshot.query.offset });
+    void runQuery({ offset: snapshot.query.offset }, { userInitiated: false });
   }
 
   async function tellAssistant(): Promise<void> {
@@ -489,7 +511,8 @@ export function createViewSession(connector: Connector, options: { initTimeoutMs
   }
 
   async function teardown(): Promise<void> {
-    if (closed) return;
+    if (tornDown) return;
+    tornDown = true;
     closed = true;
     connection += 1;
     const current = app;
@@ -510,7 +533,7 @@ export function createViewSession(connector: Connector, options: { initTimeoutMs
     listenerCount: () => listeners.size,
     connect,
     retry: connect,
-    query: runQuery,
+    query: (partial: QueryInput) => runQuery(partial, { userInitiated: true }),
     select,
     setDecision,
     setReason,
