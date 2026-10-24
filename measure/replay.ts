@@ -89,8 +89,8 @@ export function satisfies(answer: unknown, oracle: Record<string, unknown>): boo
 }
 
 async function main(): Promise<void> {
-  const results = [];
-  for (const task of tasks.readTasks) {
+  const results: Array<Record<string, unknown>> = [];
+  for (const [index, task] of tasks.readTasks.entries()) {
     // Reset: a fresh repo/session per task and mode.
     const { server } = createSession({ viewHtml: "<!-- replay: the view is not loaded in text mode -->" });
     const [c, s] = InMemoryTransport.createLinkedPair();
@@ -105,14 +105,14 @@ async function main(): Promise<void> {
       const content = (result.content ?? []) as Array<{ type: string; text?: string }>;
       texts.push(content.filter((x) => x.type === "text").map((x) => x.text ?? "").join("\n"));
       // Query parameters and paging actually applied, as reported by the server.
-      const s = (result.structuredContent ?? {}) as { query?: unknown; total?: unknown; nextOffset?: unknown };
-      calls.push({ tool: call.tool, arguments: call.arguments, query: s.query ?? null, total: s.total ?? null, nextOffset: s.nextOffset ?? null });
+      const sc = (result.structuredContent ?? {}) as { query?: unknown; total?: unknown; nextOffset?: unknown };
+      calls.push({ tool: call.tool, arguments: call.arguments, query: sc.query ?? null, total: sc.total ?? null, nextOffset: sc.nextOffset ?? null });
     }
     const wallMs = performance.now() - started;
     const answer = extract(task.text.extract, texts, task.oracle as Record<string, unknown>);
     results.push({
       task: task.id,
-      order: results.length + 1,
+      order: index + 1,
       mode: "text",
       toolCalls: calls.length,
       calls,
