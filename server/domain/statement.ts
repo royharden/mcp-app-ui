@@ -50,3 +50,11 @@ export function buildStatement(
     `reason=${quote(reason)}`,
   ].join(" | ");
 }
+
+/**
+ * The only text the view may send to the conversation: canonical id and decision enum.
+ * No title, description, reason or other copied request text.
+ */
+export function decisionMessage(id: string, decision: Decision): string {
+  return `Decision recorded: ${id} ${decision}`;
+}

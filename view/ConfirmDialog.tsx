@@ -1,0 +1,75 @@
+import { useEffect, useRef, type KeyboardEvent } from "react";
+import type { PrepareOutput } from "../server/domain/schemas.ts";
+
+interface ConfirmDialogProps {
+  prepared: PrepareOutput;
+  submitting: boolean;
+  onCancel: () => void;
+  onConfirm: () => void;
+}
+
+/**
+ * Focus-managed confirmation. The statement is the server's exact string, rendered as text.
+ * Escape cancels; Tab stays inside the dialog; focus returns to the opener on close.
+ */
+export function ConfirmDialog({ prepared, submitting, onCancel, onConfirm }: ConfirmDialogProps) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const cancelRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    cancelRef.current?.focus();
+    return () => opener?.focus();
+  }, []);
+
+  function onKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+    if (event.key === "Escape" && !submitting) {
+      event.preventDefault();
+      onCancel();
+      return;
+    }
+    if (event.key !== "Tab" || !dialogRef.current) return;
+    const focusable = Array.from(dialogRef.current.querySelectorAll<HTMLElement>("button:not([disabled])"));
+    if (focusable.length === 0) return;
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  }
+
+  return (
+    <div className="backdrop">
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="confirm-heading"
+        aria-describedby="confirm-statement confirm-note"
+        className="dialog"
+        onKeyDown={onKeyDown}
+      >
+        <h2 id="confirm-heading">Confirm this exact statement</h2>
+        <p id="confirm-statement" className="statement" data-field="statement">
+          {prepared.statement}
+        </p>
+        <p id="confirm-note" className="muted small">
+          Confirming records a synthetic decision for version {prepared.requestVersion} only. It does not prove who
+          pressed the button, and no purchase, email or other external action happens. Expires {prepared.expiresAt}.
+        </p>
+        <div className="actions">
+          <button ref={cancelRef} type="button" data-action="cancel" disabled={submitting} onClick={onCancel}>
+            Cancel
+          </button>
+          <button type="button" data-action="confirm" className="primary" disabled={submitting} onClick={onConfirm}>
+            {submitting ? "Recording…" : prepared.decision === "approve" ? "Confirm approval" : "Confirm rejection"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}

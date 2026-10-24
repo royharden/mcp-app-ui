@@ -1,0 +1,2 @@
+# Keep fixture bytes (dataset identity hash) and generated HTML identical across platforms.
+* text=auto eol=lf
