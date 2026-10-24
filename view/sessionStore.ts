@@ -426,6 +426,7 @@ export function createViewSession(connector: Connector, options: { initTimeoutMs
 
   async function refreshAfterUncertainOutcome(id: string, generation: number): Promise<void> {
     // Read only. Never re-prepare or retry automatically.
+    if (!readyApp()) return;
     set({ selection: { ...snapshot.selection, loading: true } });
     await loadDetail(id, generation);
   }

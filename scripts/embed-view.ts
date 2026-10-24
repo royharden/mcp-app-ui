@@ -32,6 +32,8 @@ const style = cssFiles.length === 1 ? read(join(distView, cssFiles[0])) : "";
 // means the same "<" inside string, template and regex literals (where a bundle has them). If
 // one ever occurred in code position the bundle would fail to parse loudly in the exact-bundle
 // harness, not silently.
+// A preceding backslash would turn our escape into a different sequence; refuse that bundle.
+if (/\\<(\/?script|!--)/i.test(script)) fail("bundle has a backslash before <script or <!--; escaping would change it");
 const LT = "\\x3C";
 const safeScript = script
   .replace(/<\/script/gi, `${LT}/script`)

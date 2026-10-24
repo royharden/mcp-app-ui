@@ -8,11 +8,17 @@ interface ConfirmDialogProps {
   onConfirm: () => void;
 }
 
-/** Where focus goes when the dialog closes: the Review button, else the drawer heading. */
-function returnFocus(): void {
-  const prepare = document.querySelector<HTMLElement>('[data-action="prepare"]:not([disabled])');
+/**
+ * Where focus goes when the dialog closes. After a submit finished (recorded, failed or
+ * unknown) the Review button is about to disappear, so focus the outcome region, which stays.
+ * After Cancel, focus the Review button. The drawer heading (tabIndex -1) is the fallback.
+ */
+function returnFocus(afterSubmit: boolean): void {
   const heading = document.getElementById("detail-heading");
-  (prepare ?? heading)?.focus();
+  const target = afterSubmit
+    ? document.querySelector<HTMLElement>("[data-outcome]")
+    : document.querySelector<HTMLElement>('[data-action="prepare"]:not([disabled])');
+  (target ?? heading)?.focus();
 }
 
 /**
@@ -24,15 +30,21 @@ export function ConfirmDialog({ prepared, submitting, onCancel, onConfirm }: Con
   const dialogRef = useRef<HTMLDivElement>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
   const cancelRef = useRef<HTMLButtonElement>(null);
+  // Set once a submit starts; the dialog then closes only because that submit finished.
+  const submittedRef = useRef(false);
 
   useEffect(() => {
     cancelRef.current?.focus();
     // The opener (Review button) is disabled while preparing, so return focus explicitly.
-    return () => returnFocus();
+    // Passive-effect cleanup runs after the commit that rendered the outcome region.
+    return () => returnFocus(submittedRef.current);
   }, []);
 
   useEffect(() => {
-    if (submitting) headingRef.current?.focus();
+    if (submitting) {
+      submittedRef.current = true;
+      headingRef.current?.focus();
+    }
   }, [submitting]);
 
   function onKeyDown(event: KeyboardEvent<HTMLDivElement>) {

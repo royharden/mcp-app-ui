@@ -22,7 +22,9 @@ export function Detail({ snapshot, onDecision, onReason, onPrepare, onTellAssist
   return (
     <aside className="detail" aria-labelledby="detail-heading">
       <div className="detail-head">
-        <h2 id="detail-heading">{selection.id}</h2>
+        <h2 id="detail-heading" tabIndex={-1}>
+          {selection.id}
+        </h2>
         <button type="button" data-action="close-detail" onClick={onClose}>
           Close
         </button>
@@ -131,7 +133,7 @@ function Outcome(props: { snapshot: ViewSnapshot; onTellAssistant: () => void; m
   if (submit.forId !== selection.id) return null;
   if (submit.status === "unknown") {
     return (
-      <div role="status" className="outcome warn" data-outcome="unknown">
+      <div role="status" className="outcome warn" data-outcome="unknown" tabIndex={-1}>
         <p>
           Outcome unknown: {submit.error}. The request above was refreshed — check its status, version and history
           before deciding again. Nothing is retried automatically.
@@ -141,7 +143,7 @@ function Outcome(props: { snapshot: ViewSnapshot; onTellAssistant: () => void; m
   }
   if (submit.status === "failed") {
     return (
-      <div role="alert" className="outcome error" data-outcome="failed">
+      <div role="alert" className="outcome error" data-outcome="failed" tabIndex={-1}>
         <p>Not recorded: {submit.error}</p>
       </div>
     );
@@ -149,7 +151,7 @@ function Outcome(props: { snapshot: ViewSnapshot; onTellAssistant: () => void; m
   const result = submit.result;
   if (!result) return null;
   return (
-    <div role="status" className="outcome ok" data-outcome="recorded">
+    <div role="status" className="outcome ok" data-outcome="recorded" tabIndex={-1}>
       <p>
         Recorded: {result.id} {result.decision}. Status {result.status}, version {result.version}. Synthetic record
         only — no external action happened.
