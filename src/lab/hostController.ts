@@ -45,6 +45,11 @@ export interface HostControllerOptions {
   messageCapability: boolean;
   hostContext: Record<string, unknown>;
   onState?: (state: HostState) => void;
+  /**
+   * Harness-only seam for named injected faults. Defaults to the real Client. A substituted
+   * call is labelled in the harness trace and never counts as a real-server success.
+   */
+  callTool?: (params: { name: string; arguments: Record<string, unknown> }) => Promise<CallToolResult>;
 }
 
 export function appVisibleToolNames(tools: Tool[]): Set<string> {
@@ -70,6 +75,8 @@ export function createHostController(options: HostControllerOptions) {
   };
   let pendingInput: Record<string, unknown> | null = null;
   let pendingResult: CallToolResult | null = null;
+  // Host-context changes made before ready are merged and sent once the view is ready.
+  let pendingContext: Record<string, unknown> | null = null;
   let bridge: AppBridge | null = null;
 
   function update(patch: Partial<HostState>): void {
@@ -95,18 +102,26 @@ export function createHostController(options: HostControllerOptions) {
       log.event("host↔view", "view initialized; flushing buffered launch data");
       const input = pendingInput;
       const result = pendingResult;
+      const context = pendingContext;
       pendingInput = null;
       pendingResult = null;
-      void (async () => {
+      pendingContext = null;
+      (async () => {
         if (input) await next.sendToolInput({ arguments: input });
         if (result) await next.sendToolResult(result as never);
-      })();
+        if (context) await next.sendHostContextChange(context as never);
+      })().catch((error: unknown) => {
+        const message = error instanceof Error ? error.message : String(error);
+        update({ error: `Delivering launch data failed: ${message}` });
+        log.event("host↔view", `launch data delivery failed: ${message}`);
+      });
     };
 
     next.oncalltool = async (params: { name: string; arguments?: Record<string, unknown> }) => {
       requireReady("tools/call");
       if (!appTools.has(params.name)) throw new Error(`tools/call refused: ${params.name} is not app-visible on this server.`);
-      return (await client.callTool({ name: params.name, arguments: params.arguments ?? {} })) as never;
+      const call = { name: params.name, arguments: params.arguments ?? {} };
+      return (options.callTool ? await options.callTool(call) : await client.callTool(call)) as never;
     };
 
     next.onmessage = async (params: { role?: string; content?: Array<{ type: string; text?: string }> }) => {
@@ -162,7 +177,11 @@ export function createHostController(options: HostControllerOptions) {
   }
 
   async function setHostContext(patch: Record<string, unknown>): Promise<void> {
-    if (!bridge || state.phase !== "ready") return;
+    if (!bridge || state.phase === "torndown" || state.phase === "overflow") return;
+    if (state.phase !== "ready") {
+      pendingContext = { ...(pendingContext ?? {}), ...patch };
+      return;
+    }
     await bridge.sendHostContextChange(patch as never);
   }
 

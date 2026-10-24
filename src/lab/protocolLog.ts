@@ -87,7 +87,8 @@ export function createProtocolLog(onChange: () => void) {
   }
 
   function event(channel: Channel, summary: string): void {
-    push({ channel, direction: "→", kind: "event", method: null, id: null, summary });
+    // Event text can embed error messages that echo request data; redact known nonces too.
+    push({ channel, direction: "→", kind: "event", method: null, id: null, summary: redactor.redactText(summary) });
   }
 
   return {

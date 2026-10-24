@@ -65,9 +65,17 @@ function scanRawTextElements(html: string): { elements: RawElement[]; outside: s
     outside += html.slice(pos, match.index);
     const tag = match[1].toLowerCase() as RawElement["tag"];
     const contentStart = match.index + match[0].length;
-    const close = html.toLowerCase().indexOf(`</${tag}`, contentStart);
-    if (close < 0) throw new EnvelopeError(`Unterminated <${tag}> element.`);
-    elements.push({ tag, attributes: match[2], content: html.slice(contentStart, close) });
+    // Case-insensitive search on the original string (a lowercased copy can change length).
+    // The tag name must end at whitespace, "/" or ">", as in the HTML tokenizer.
+    const closeTag = new RegExp(`</${tag}(?=[\s/>])`, "gi");
+    closeTag.lastIndex = contentStart;
+    const closeMatch = closeTag.exec(html);
+    if (!closeMatch) throw new EnvelopeError(`Unterminated <${tag}> element.`);
+    const close = closeMatch.index;
+    const content = html.slice(contentStart, close);
+    // Browsers hash script/style text after normalizing CR/CRLF and NUL; refuse instead of guessing.
+    if (/[\r\0]/.test(content)) throw new EnvelopeError(`The <${tag}> text contains CR or NUL characters.`);
+    elements.push({ tag, attributes: match[2], content });
     const closeEnd = html.indexOf(">", close);
     if (closeEnd < 0) throw new EnvelopeError(`Malformed </${tag}> tag.`);
     pos = closeEnd + 1;

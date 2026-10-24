@@ -32,6 +32,30 @@ describe("SEC-07 CSP envelope", () => {
     expect(env.rawSha256).toMatch(/^[0-9a-f]{64}$/);
   });
 
+  it("hashes exactly the script and style element text, independently recomputed", async () => {
+    const { createHash } = await import("node:crypto");
+    const env = await buildEnvelope(HTML, EMPTY_META);
+    const { script, style } = extractInline(HTML);
+    const digest = (text: string) => `'sha256-${createHash("sha256").update(text, "utf8").digest("base64")}'`;
+    expect(env.scriptHash).toBe(digest(script));
+    expect(env.styleHash).toBe(digest(style ?? ""));
+    expect(script).toBe('var s="\\x3Cscript>";document.body.dataset.ok="1";');
+    const metaAt = env.html.indexOf("Content-Security-Policy");
+    expect(metaAt).toBeGreaterThan(0);
+    expect(metaAt).toBeLessThan(env.html.indexOf("<style>"));
+    expect(metaAt).toBeLessThan(env.html.indexOf("<script>"));
+  });
+
+  it("refuses script text with CR or NUL instead of guessing the browser's normalization", async () => {
+    const html = "<html><head></head><body><script>var a=1;\r\nvar b=2;</script></body></html>";
+    await expect(buildEnvelope(html, EMPTY_META)).rejects.toBeInstanceOf(EnvelopeError);
+  });
+
+  it("ends an element only at a real close tag", () => {
+    const html = '<html><head></head><body><script>var t="</scriptx>";</script></body></html>';
+    expect(extractInline(html).script).toBe('var t="</scriptx>";');
+  });
+
   it("ignores <script> text inside the script body when counting elements", () => {
     const bundle = '<html><head></head><body><script>var a="<script>"+"<"+"/b>";</script></body></html>';
     expect(extractInline(bundle).script).toBe('var a="<script>"+"<"+"/b>";');
