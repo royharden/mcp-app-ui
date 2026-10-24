@@ -54,6 +54,8 @@ export const ScenarioSchema = z
         outcome: z.enum(["recorded", "unknown", "failed", "none"]).optional(),
         statementShown: z.string().optional(),
         acceptedMessages: z.array(z.string()).optional(),
+        /** ERR-01: a readable error is visible in the view (role="alert"). */
+        visibleError: z.boolean().optional(),
       })
       .strict(),
   })
@@ -63,16 +65,36 @@ export const ScenarioSchema = z
   });
 export type Scenario = z.infer<typeof ScenarioSchema>;
 
+
+export interface Observed {
+  statuses: Record<string, string>;
+  historyLengths: Record<string, number>;
+  outcome: string;
+  statementShown: string | null;
+  acceptedMessages: string[];
+  visibleError: boolean;
+  /** Why some observations could not be taken (e.g. the frame was already torn down). */
+  unavailable: string[];
+}
+
 export interface ScenarioRun {
   scenario: Scenario;
   trace: Trace;
-  observed: {
-    statuses: Record<string, string>;
-    historyLengths: Record<string, number>;
-    outcome: string;
-    statementShown: string | null;
-    acceptedMessages: string[];
-  };
+  observed: Observed;
+}
+
+/**
+ * A failed or blocked run. It still carries the finished trace and whatever could be observed,
+ * so a blocked exact-bundle layer is recorded, not lost.
+ */
+export class ScenarioError extends Error {
+  readonly run: ScenarioRun;
+
+  constructor(message: string, run: ScenarioRun) {
+    super(message);
+    this.name = "ScenarioError";
+    this.run = run;
+  }
 }
 
 export interface RunOptions {
@@ -93,10 +115,9 @@ export async function runScenario(input: unknown, options: RunOptions): Promise<
   };
   const recorder = createRecorder(identity);
   let rendered: RenderedView | null = null;
+  let tornDown = false;
   let statementShown: string | null = null;
-  let terminal = "completed";
-  let trace: Trace | undefined;
-  let observed: ScenarioRun["observed"] | undefined;
+  let failure: string | null = null;
 
   const render = async () => {
     rendered = await renderInHarness({
@@ -108,12 +129,14 @@ export async function runScenario(input: unknown, options: RunOptions): Promise<
       clock: options.clock,
       random: options.random,
     });
+    tornDown = false;
     identity.rawHtmlSha256 = rendered.envelope.rawSha256;
     identity.envelopeSha256 = rendered.envelope.envelopeSha256;
     await waitForReady(rendered);
   };
   const current = (): RenderedView => {
     if (!rendered) throw new Error("Scenario action before connect.");
+    if (tornDown) throw new Error("Scenario action after teardown.");
     return rendered;
   };
   // React may commit after the triggering event; wait for the control to be enabled first.
@@ -134,7 +157,7 @@ export async function runScenario(input: unknown, options: RunOptions): Promise<
           await render();
           break;
         case "reset-session":
-          await current().close();
+          if (rendered && !tornDown) await (rendered as RenderedView).close();
           rendered = null;
           await render();
           break;
@@ -143,12 +166,12 @@ export async function runScenario(input: unknown, options: RunOptions): Promise<
           const before = view.text(".count");
           const started = Date.now();
           view.setSelect(action.field, action.value);
-          // Settled when the filters are enabled again and the count changed (or 300 ms passed
-          // for a filter that leaves the count unchanged).
+          // Settled when the filters are enabled again and the count changed, an error is shown,
+          // or 300 ms passed for a filter that leaves the count unchanged.
           await waitFor(
             () =>
               !view.query("form.filters select[disabled]") &&
-              (view.text(".count") !== before || Date.now() - started > 300),
+              (view.text(".count") !== before || view.query('.queue [role="alert"]') !== null || Date.now() - started > 300),
             "the queue to settle",
           );
           break;
@@ -164,7 +187,10 @@ export async function runScenario(input: unknown, options: RunOptions): Promise<
           view.chooseDecision(action.decision);
           view.setInput('input[name="reason"]', action.reason);
           await clickWhenEnabled('button[data-action="prepare"]');
-          await waitFor(() => view.query('[role="dialog"] [data-field="statement"]') ?? view.query('.decide [role="alert"]'), "the confirmation dialog or a prepare error");
+          await waitFor(
+            () => view.query('[role="dialog"] [data-field="statement"]') ?? view.query('.decide [role="alert"]'),
+            "the confirmation dialog or a prepare error",
+          );
           statementShown = view.text('[data-field="statement"]');
           break;
         }
@@ -183,29 +209,62 @@ export async function runScenario(input: unknown, options: RunOptions): Promise<
         case "send": {
           const view = current().view;
           await clickWhenEnabled('button[data-action="tell-assistant"]');
-          await waitFor(() => current().controller.getState().acceptedMessages.length > 0 || view.query(".outcome .error"), "the host to answer ui/message");
+          await waitFor(
+            () => current().controller.getState().acceptedMessages.length > 0 || view.query(".outcome .error"),
+            "the host to answer ui/message",
+          );
           break;
         }
         case "teardown":
           await current().controller.teardown();
+          tornDown = true;
           break;
       }
+      if (recorder.overflow()) break;
     }
   } catch (error) {
-    terminal = `failed: ${error instanceof Error ? error.message : String(error)}`;
-    throw error;
-  } finally {
-    const r = rendered as RenderedView | null;
-    const rows = r ? r.repo.list() : [];
-    observed = {
-      statuses: Object.fromEntries(rows.map((x) => [x.id, x.status])),
-      historyLengths: Object.fromEntries(rows.map((x) => [x.id, x.decisionHistory.length])),
-      outcome: r?.view.query("[data-outcome]")?.getAttribute("data-outcome") ?? "none",
-      statementShown,
-      acceptedMessages: r ? [...r.controller.getState().acceptedMessages] : [],
-    };
-    if (r) await r.close();
-    trace = await recorder.finish(terminal);
+    failure = error instanceof Error ? error.message : String(error);
   }
-  return { scenario, trace, observed };
+
+  // Observe what can still be observed; never let an observation error replace the run's error.
+  const r = rendered as RenderedView | null;
+  const observed: Observed = {
+    statuses: {},
+    historyLengths: {},
+    outcome: "none",
+    statementShown,
+    acceptedMessages: [],
+    visibleError: false,
+    unavailable: [],
+  };
+  if (r) {
+    for (const row of r.repo.list()) {
+      observed.statuses[row.id] = row.status;
+      observed.historyLengths[row.id] = row.decisionHistory.length;
+    }
+    observed.acceptedMessages = [...r.controller.getState().acceptedMessages];
+    if (tornDown) {
+      observed.unavailable.push("view DOM (torn down by the scenario)");
+    } else {
+      try {
+        observed.outcome = r.view.query("[data-outcome]")?.getAttribute("data-outcome") ?? "none";
+        observed.visibleError = r.view.query('[role="alert"]') !== null;
+      } catch (error) {
+        observed.unavailable.push(`view DOM: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    }
+    try {
+      await r.close();
+    } catch (error) {
+      observed.unavailable.push(`close: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  } else {
+    observed.unavailable.push("no rendered view");
+  }
+
+  const overflow = recorder.overflow();
+  const terminal = overflow ? `failed: ${overflow}` : failure ? `failed: ${failure}` : "completed";
+  const run: ScenarioRun = { scenario, trace: await recorder.finish(terminal), observed };
+  if (terminal !== "completed") throw new ScenarioError(terminal, run);
+  return run;
 }

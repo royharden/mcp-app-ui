@@ -1,7 +1,9 @@
 // Bounded, evidence-grade trace for harness runs.
 //
 // Limits: 2000 events, 16 KiB captured per event, 2 MiB total. Exceeding any limit FAILS the
-// run (TraceOverflowError) instead of silently dropping evidence. Payloads are allowlisted:
+// run instead of silently dropping evidence. Recording happens inside transport and event
+// callbacks where a thrown error would be swallowed, so overflow is a sticky flag: recording
+// stops, `overflow()` reports it, the runner fails, and `finish()` marks the trace failed. Payloads are allowlisted:
 // nonces become digest aliases, and untrusted free text (reasons, statements, titles,
 // descriptions, tool text content) is replaced by { redacted, length } so traces never copy it.
 // Focused formatting tests inspect those strings in memory instead.
@@ -89,13 +91,16 @@ export function createRecorder(identity: TraceIdentity) {
     return value;
   }
 
+  let overflowReason: string | null = null;
+
   function push(event: Omit<TraceEvent, "index" | "monotonic">): void {
-    if (events.length >= MAX_EVENTS) throw new TraceOverflowError(`Trace exceeded ${MAX_EVENTS} events.`);
+    if (overflowReason) return;
     const bytes = byteLength(JSON.stringify(event.payload ?? null));
-    if (bytes > MAX_EVENT_BYTES) {
-      throw new TraceOverflowError(`Trace event ${events.length + 1} captured ${bytes} bytes (limit ${MAX_EVENT_BYTES}).`);
-    }
-    if (totalBytes + bytes > MAX_TOTAL_BYTES) throw new TraceOverflowError(`Trace exceeded ${MAX_TOTAL_BYTES} bytes.`);
+    if (events.length >= MAX_EVENTS) overflowReason = `trace overflow: more than ${MAX_EVENTS} events`;
+    else if (bytes > MAX_EVENT_BYTES) {
+      overflowReason = `trace overflow: event ${events.length + 1} captured ${bytes} bytes (limit ${MAX_EVENT_BYTES})`;
+    } else if (totalBytes + bytes > MAX_TOTAL_BYTES) overflowReason = `trace overflow: more than ${MAX_TOTAL_BYTES} bytes`;
+    if (overflowReason) return;
     totalBytes += bytes;
     counter += 1;
     events.push({ ...event, index: events.length + 1, monotonic: counter });
@@ -181,7 +186,9 @@ export function createRecorder(identity: TraceIdentity) {
     await Promise.all(pendingDigests);
     return {
       identity,
-      terminal,
+      // An overflowed trace is never reported as completed, whatever the caller passed.
+      terminal: overflowReason && !terminal.startsWith("failed") ? `failed: ${overflowReason}` : terminal,
+      overflow: overflowReason,
       limits: { maxEvents: MAX_EVENTS, maxEventBytes: MAX_EVENT_BYTES, maxTotalBytes: MAX_TOTAL_BYTES },
       totalBytes,
       nonceDigests: Object.fromEntries(nonceDigests),
@@ -189,7 +196,12 @@ export function createRecorder(identity: TraceIdentity) {
     };
   }
 
-  return { message, action, fault, wrap, finish, events: () => events.slice() };
+  /** Throws if the trace overflowed: for callers outside runScenario that want a hard failure. */
+  function assertComplete(): void {
+    if (overflowReason) throw new TraceOverflowError(overflowReason);
+  }
+
+  return { message, action, fault, wrap, finish, overflow: () => overflowReason, assertComplete, events: () => events.slice() };
 }
 
 export type Recorder = ReturnType<typeof createRecorder>;

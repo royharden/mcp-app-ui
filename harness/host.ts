@@ -134,8 +134,15 @@ export async function renderInHarness(options: RenderOptions): Promise<RenderedV
     throw new Error("The resource is not a single MCP App HTML document.");
   }
   const html = content.text;
-  const envelope = await buildEnvelope(html, content._meta);
-  const frame = createHarnessFrame(document);
+  let envelope: Envelope;
+  let frame: HarnessFrame;
+  try {
+    envelope = await buildEnvelope(html, content._meta);
+    frame = createHarnessFrame(document);
+  } catch (error) {
+    await fixture.close();
+    throw error;
+  }
   const controller = createHostController({
     client: fixture.client,
     tools: fixture.tools,
@@ -145,11 +152,18 @@ export async function renderInHarness(options: RenderOptions): Promise<RenderedV
     hostContext: options.hostContext ?? { theme: "light", locale: "en-US", platform: "web", displayMode: "inline" },
     callTool: faultyCall(fixture.client, options.recorder, options.faults ?? []),
   });
-  await controller.start(envelope.html);
-  options.recorder.action("launch", { tool: launch.name, arguments: options.initialToolInput });
-  controller.deliverInput(options.initialToolInput);
-  const result = (await fixture.client.callTool({ name: launch.name, arguments: options.initialToolInput })) as CallToolResult;
-  controller.deliverResult(result);
+  try {
+    await controller.start(envelope.html);
+    options.recorder.action("launch", { tool: launch.name, arguments: options.initialToolInput });
+    controller.deliverInput(options.initialToolInput);
+    const result = (await fixture.client.callTool({ name: launch.name, arguments: options.initialToolInput })) as CallToolResult;
+    controller.deliverResult(result);
+  } catch (error) {
+    // Never leak the frame or the server when start-up fails.
+    await controller.teardown();
+    await fixture.close();
+    throw error;
+  }
 
   const view = viewDriver(() => frame.iframe.contentDocument);
   return {

@@ -52,6 +52,11 @@ Revision: branch `s17-approval-desk`. Every case's status is **pending**: writte
 | The exact returned script initializes and renders, and DOM Confirm changes the real repo | SEC-05 (`tests/harness/exactBundle.test.ts`, scenarios) | source inspected |
 | Initialization, capability and teardown gates; wrong-window rejection; `ui/open-link` refused | SEC-06 (`tests/harness/hostGates.test.ts`) | source inspected |
 | The CSP envelope is applied before any script, raw and enveloped hashes are separate, no raw nonce is persisted | SEC-07 (`tests/security/envelope.test.ts`, trace checks) | source inspected |
+| Initial data withheld until `initialized`, then flushed once; overflow, timeout and Retry visible | INIT-01, INIT-02 (store tests, `tests/harness/hostGates.test.ts`, `exactBundle.test.ts`) | source inspected |
+| StrictMode remount and final teardown keep one connection and leave no listeners behind | LIFE-01, CANCEL-01 (`tests/unit/sessionStore.test.ts`) | source inspected |
+| Late query, launch, detail, prepare or message results cannot overwrite newer state | ORDER-01 (`tests/unit/sessionStore.test.ts`) | source inspected |
+| Real invalid input and labelled injected transport failures show readable errors | ERR-01 (`harness/scenarios/invalid-reason.json`, `list-transport-error.json`) | source inspected |
+| Theme, locale and size changes preserve state; a missing capability disables messaging | CTX-01 (`tests/unit/sessionStore.test.ts`) | source inspected |
 | Real-browser sandbox and CSP behaviour | BROWSER-01 (`tests/e2e/sandbox.spec.ts`) | not started |
 | A named host renders the desk over local stdio, mediates visibility, records a decision and acknowledges the message | HOST-01 | not started |
 

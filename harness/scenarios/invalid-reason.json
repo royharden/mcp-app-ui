@@ -1,0 +1,39 @@
+{
+  "id": "invalid-reason",
+  "description": "ERR-01 (real handlers): a reason containing a zero-width character is rejected by prepare_decision with invalid_input, shown as a readable error; nothing is recorded.",
+  "mode": "realHandlers",
+  "datasetVersion": "approvals-v1",
+  "hostContext": {
+    "theme": "light",
+    "locale": "en-US",
+    "platform": "web",
+    "displayMode": "inline"
+  },
+  "initialToolInput": {},
+  "faults": [],
+  "actions": [
+    {
+      "do": "connect"
+    },
+    {
+      "do": "select",
+      "id": "REQ-101"
+    },
+    {
+      "do": "prepare",
+      "decision": "approve",
+      "reason": "zero\u200bwidth"
+    }
+  ],
+  "expected": {
+    "statuses": {
+      "REQ-101": "pending"
+    },
+    "historyLengths": {
+      "REQ-101": 0
+    },
+    "outcome": "none",
+    "visibleError": true,
+    "acceptedMessages": []
+  }
+}

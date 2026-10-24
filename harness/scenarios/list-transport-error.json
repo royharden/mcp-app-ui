@@ -1,0 +1,31 @@
+{
+  "id": "list-transport-error",
+  "description": "ERR-01 (injected fault): a list_approvals transport failure after a filter change is shown as a readable error. Not a real-server success.",
+  "mode": "injectedFault",
+  "datasetVersion": "approvals-v1",
+  "hostContext": {
+    "theme": "light",
+    "locale": "en-US",
+    "platform": "web",
+    "displayMode": "inline"
+  },
+  "initialToolInput": {},
+  "faults": [
+    "listTransportError"
+  ],
+  "actions": [
+    {
+      "do": "connect"
+    },
+    {
+      "do": "filter",
+      "field": "Category",
+      "value": "travel"
+    }
+  ],
+  "expected": {
+    "outcome": "none",
+    "visibleError": true,
+    "acceptedMessages": []
+  }
+}

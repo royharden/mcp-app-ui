@@ -11,7 +11,7 @@ const files = readdirSync(dir).filter((f) => f.endsWith(".json")).sort();
 
 describe("declarative scenarios", () => {
   it("all scenario files validate against the allowlisted schema", () => {
-    expect(files.length).toBeGreaterThanOrEqual(4);
+    expect(files.length).toBeGreaterThanOrEqual(6);
     for (const f of files) {
       const parsed = ScenarioSchema.safeParse(JSON.parse(readFileSync(dir + f, "utf8")));
       expect(parsed.success, f).toBe(true);
@@ -43,6 +43,8 @@ describe("declarative scenarios", () => {
       if (expected.outcome) expect(run.observed.outcome).toBe(expected.outcome);
       if (expected.statementShown) expect(run.observed.statementShown).toBe(expected.statementShown);
       if (expected.acceptedMessages) expect(run.observed.acceptedMessages).toEqual(expected.acceptedMessages);
+      if (expected.visibleError !== undefined) expect(run.observed.visibleError).toBe(expected.visibleError);
+      expect(run.observed.unavailable).toEqual([]);
 
       // Trace contract: identity present, terminal disposition, faults labelled, no raw nonces.
       expect(run.trace.identity).toMatchObject({ scenarioId: run.scenario.id, mode: run.scenario.mode });
