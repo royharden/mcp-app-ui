@@ -1,0 +1,23 @@
+{
+  "id": "approve-req-104",
+  "description": "Policy demonstration D1: approve REQ-104 through the exact view, then tell the host. Real handlers only.",
+  "mode": "realHandlers",
+  "datasetVersion": "approvals-v1",
+  "hostContext": { "theme": "light", "locale": "en-US", "platform": "web", "displayMode": "inline" },
+  "initialToolInput": {},
+  "faults": [],
+  "actions": [
+    { "do": "connect" },
+    { "do": "select", "id": "REQ-104" },
+    { "do": "prepare", "decision": "approve", "reason": "Sandbox renewal approved" },
+    { "do": "confirm" },
+    { "do": "send" }
+  ],
+  "expected": {
+    "statuses": { "REQ-104": "approved", "REQ-105": "pending" },
+    "historyLengths": { "REQ-104": 1 },
+    "outcome": "recorded",
+    "statementShown": "Approve REQ-104 | title=\"Renew sandbox editor\" | USD 1240.00 | version=3 | reason=\"Sandbox renewal approved\"",
+    "acceptedMessages": ["Decision recorded: REQ-104 approve"]
+  }
+}

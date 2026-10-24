@@ -67,7 +67,8 @@ function scanRawTextElements(html: string): { elements: RawElement[]; outside: s
     const contentStart = match.index + match[0].length;
     // Case-insensitive search on the original string (a lowercased copy can change length).
     // The tag name must end at whitespace, "/" or ">", as in the HTML tokenizer.
-    const closeTag = new RegExp(`</${tag}(?=[\s/>])`, "gi");
+    // HTML tokenizer whitespace (tab, LF, FF, CR, space), "/" or ">" ends the tag name.
+    const closeTag = new RegExp(`</${tag}(?=[\\t\\n\\f\\r />])`, "gi");
     closeTag.lastIndex = contentStart;
     const closeMatch = closeTag.exec(html);
     if (!closeMatch) throw new EnvelopeError(`Unterminated <${tag}> element.`);

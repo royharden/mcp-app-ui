@@ -78,6 +78,22 @@ export function createHostController(options: HostControllerOptions) {
   // Host-context changes made before ready are merged and sent once the view is ready.
   let pendingContext: Record<string, unknown> | null = null;
   let bridge: AppBridge | null = null;
+  // Every host->view delivery goes through one chain, so a launch result that arrives while the
+  // buffered input is still being flushed can never overtake it.
+  let deliveries: Promise<void> = Promise.resolve();
+
+  function enqueue(label: string, send: () => Promise<unknown>): void {
+    deliveries = deliveries
+      .then(async () => {
+        if (state.phase === "torndown") return;
+        await send();
+      })
+      .catch((error: unknown) => {
+        const message = error instanceof Error ? error.message : String(error);
+        update({ error: `Delivering ${label} failed: ${message}` });
+        log.event("host↔view", `${label} delivery failed: ${message}`);
+      });
+  }
 
   function update(patch: Partial<HostState>): void {
     state = { ...state, ...patch };
@@ -106,15 +122,9 @@ export function createHostController(options: HostControllerOptions) {
       pendingInput = null;
       pendingResult = null;
       pendingContext = null;
-      (async () => {
-        if (input) await next.sendToolInput({ arguments: input });
-        if (result) await next.sendToolResult(result as never);
-        if (context) await next.sendHostContextChange(context as never);
-      })().catch((error: unknown) => {
-        const message = error instanceof Error ? error.message : String(error);
-        update({ error: `Delivering launch data failed: ${message}` });
-        log.event("host↔view", `launch data delivery failed: ${message}`);
-      });
+      if (input) enqueue("tool input", () => next.sendToolInput({ arguments: input }));
+      if (result) enqueue("tool result", () => next.sendToolResult(result as never));
+      if (context) enqueue("host context", () => next.sendHostContextChange(context as never));
     };
 
     next.oncalltool = async (params: { name: string; arguments?: Record<string, unknown> }) => {
@@ -159,9 +169,9 @@ export function createHostController(options: HostControllerOptions) {
   function deliver(kind: "input" | "result", payload: Record<string, unknown> | CallToolResult): void {
     if (state.phase === "torndown" || state.phase === "overflow") return;
     if (state.phase === "ready" && bridge) {
-      void (kind === "input"
-        ? bridge.sendToolInput({ arguments: payload as Record<string, unknown> })
-        : bridge.sendToolResult(payload as never));
+      const current = bridge;
+      if (kind === "input") enqueue("tool input", () => current.sendToolInput({ arguments: payload as Record<string, unknown> }));
+      else enqueue("tool result", () => current.sendToolResult(payload as never));
       return;
     }
     if ((kind === "input" && pendingInput) || (kind === "result" && pendingResult)) {
@@ -182,7 +192,9 @@ export function createHostController(options: HostControllerOptions) {
       pendingContext = { ...(pendingContext ?? {}), ...patch };
       return;
     }
-    await bridge.sendHostContextChange(patch as never);
+    const current = bridge;
+    enqueue("host context", () => current.sendHostContextChange(patch as never));
+    await deliveries;
   }
 
   async function teardown(): Promise<void> {
@@ -193,6 +205,7 @@ export function createHostController(options: HostControllerOptions) {
     bridge = null;
     pendingInput = null;
     pendingResult = null;
+    pendingContext = null;
     if (current) {
       if (wasReady) {
         await Promise.race([

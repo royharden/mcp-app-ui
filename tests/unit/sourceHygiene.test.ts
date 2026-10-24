@@ -27,7 +27,7 @@ function walk(dir: string, out: string[]): void {
     if (SKIP.has(name)) continue;
     const path = join(dir, name);
     if (statSync(path).isDirectory()) walk(path, out);
-    else if (/\.(ts|tsx|css|json)$/.test(name) && !path.includes(join("server", "main.ts"))) out.push(path);
+    else if (/\.(ts|tsx|css|json|mjs|html)$/.test(name) && !path.includes(join("server", "main.ts"))) out.push(path);
   }
 }
 
@@ -45,7 +45,9 @@ describe("source hygiene", () => {
     for (const file of files) {
       const text = readFileSync(file, "utf8");
       for (let i = 0; i < text.length; i += 1) {
-        if (forbidden(text.charCodeAt(i))) {
+        const code = text.charCodeAt(i);
+        // Invisible characters plus stray C0 controls (NUL, CR, ...) written by tooling.
+        if (forbidden(code) || (code < 0x20 && code !== 0x0a && code !== 0x09)) {
           offenders.push(`${file}: U+${text.charCodeAt(i).toString(16).toUpperCase().padStart(4, "0")} at ${i}`);
           break;
         }
@@ -54,7 +56,20 @@ describe("source hygiene", () => {
     expect(offenders).toEqual([]);
   });
 
-  it("the regex escapes used by the formatter are real escapes", () => {
-    expect(String.fromCharCode(0x2028)).toMatch(new RegExp("[\\u2028]"));
+  it("root-level HTML and config files are clean too", () => {
+    const offenders: string[] = [];
+    for (const name of readdirSync(root)) {
+      if (!/\.(html|ts|json)$/.test(name) || !statSync(join(root, name)).isFile()) continue;
+      const text = readFileSync(join(root, name), "utf8");
+      for (let i = 0; i < text.length; i += 1) {
+        const code = text.charCodeAt(i);
+        // Also catches stray NUL/CR and other C0 controls written by tooling.
+        if (forbidden(code) || (code < 0x20 && code !== 0x0a && code !== 0x09)) {
+          offenders.push(`${name}: U+${code.toString(16).toUpperCase().padStart(4, "0")} at ${i}`);
+          break;
+        }
+      }
+    }
+    expect(offenders).toEqual([]);
   });
 });

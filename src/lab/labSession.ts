@@ -38,7 +38,20 @@ export async function startLabSession(viewHtml: string, log: ProtocolLog): Promi
   );
   await server.connect(serverSide);
   await client.connect(loggingTransport(clientSide, log, "client↔server", "→"));
+  const closeBoth = async () => {
+    await client.close().catch(() => undefined);
+    await server.close().catch(() => undefined);
+  };
+  try {
+    return await loadSession(client, repo, closeBoth);
+  } catch (error) {
+    // A partly started session is closed, never leaked.
+    await closeBoth();
+    throw error;
+  }
+}
 
+async function loadSession(client: Client, repo: Repo, close: () => Promise<void>): Promise<LabSession> {
   const { tools } = await client.listTools();
   const launchTool = tools.find((t) => typeof (t._meta as { ui?: { resourceUri?: unknown } } | undefined)?.ui?.resourceUri === "string");
   if (!launchTool) throw new LabSessionError("No tool links a UI resource.");
@@ -55,9 +68,6 @@ export async function startLabSession(viewHtml: string, log: ProtocolLog): Promi
     tools,
     launchTool,
     resource: { uri, mimeType: content.mimeType, html: content.text, meta: content._meta },
-    async close() {
-      await client.close().catch(() => undefined);
-      await server.close().catch(() => undefined);
-    },
+    close,
   };
 }

@@ -54,6 +54,12 @@ describe("SEC-07 CSP envelope", () => {
   it("ends an element only at a real close tag", () => {
     const html = '<html><head></head><body><script>var t="</scriptx>";</script></body></html>';
     expect(extractInline(html).script).toBe('var t="</scriptx>";');
+    const plural = '<html><head></head><body><script>var t="</scripts>";</script></body></html>';
+    expect(extractInline(plural).script).toBe('var t="</scripts>";');
+    const spaced = "<html><head></head><body><script>var t=1;</script ></body></html>";
+    expect(extractInline(spaced).script).toBe("var t=1;");
+    const upper = "<html><head></head><body><script>var t=2;</SCRIPT></body></html>";
+    expect(extractInline(upper).script).toBe("var t=2;");
   });
 
   it("ignores <script> text inside the script body when counting elements", () => {
