@@ -1,0 +1,15 @@
+MCP Approval Desk
+Copyright (c) 2026 Roy Harden. Licensed under the MIT License (see LICENSE).
+
+This project's source is original. It copies no vendor framework, example host or sample
+code. The approach draws on public documentation and ideas from:
+
+- Model Context Protocol and the MCP Apps extension (modelcontextprotocol/ext-apps):
+  specifications and SDK documentation. The SDKs are used as dependencies, under their own
+  licences.
+- sunpeak and MCPJam inspector: used for ideas only (testing workflows). No code was copied.
+
+Third-party dependencies in package.json keep their own licences. Their exact licence texts
+are to be checked and listed after the first real install (pending).
+
+All data in fixtures/approvals.v1.json is synthetic. No real people, vendors or amounts.

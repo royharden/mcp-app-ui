@@ -1,74 +1,76 @@
-# Confirm Queue
+# MCP Approval Desk
 
-An MCP App for one job: a person reviews a proposed write and confirms the exact change before anything is committed. The model can list and read approvals. `request_decision` and `commit_decision` belong to the view.
+An MCP App with an interactive approval UI. It records **synthetic** approve/reject decisions on a fixed queue of 12 made-up requests. Each decision is bound to:
 
-**Dirty Mode construction. Runtime unverified.** This session wrote the source and did not install dependencies, start the app, apply SQL, deploy the function, or run the tests.
+- one exact confirmation statement
+- the request version
+- a one-time nonce
 
-## What is built
+> **Honest status (2026-10-23):** the source, tests and docs are written. **Nothing has been installed, built, tested or run.** The source was built under a static-checks-only construction mode. Every runtime claim is pending; see `docs/LIMITATIONS.md` and `DEVELOPMENT-STATUS.md`.
 
-- Pure approval rules, text fallback, sandbox policy checks, and a three-task scripted UI-vs-text report.
-- An in-process MCP handler for `initialize`, `tools/list`, `tools/call`, `resources/list`, and `resources/read`.
-- A self-contained HTML view (`text/html;profile=mcp-app`) that stays idle until a sandbox proxy sets the host origin.
-- A headless host bridge that drops the wrong source and any host notification sent before `ui/notifications/initialized`.
-- A React page with a local preview, a labeled harness replay, and a Bolt Database desk (email/password, then the decision function).
-- One SQL migration and the `approval-decision` edge function. The migration has not been applied.
+## What is here
 
-## What has not run
+| Part | Path | What it is |
+|---|---|---|
+| MCP server | `server/createServer.ts` | Official SDK server with five tools and one UI resource. It is runtime-neutral and the view HTML is injected. |
+| Domain | `server/domain/*`, `server/repo/*` | Strict schemas, a shared safe formatter, the canonical statement, and an atomic in-memory repo |
+| Data | `fixtures/approvals.v1.json` | 12 synthetic requests. REQ-109 and REQ-112 carry hostile text on purpose. |
+| View | `view/*` | React desk: queue, filters, drawer, an exact-statement confirmation dialog, outcome. Built as one classic script and inlined into one HTML document. |
+| stdio entry | `server/stdio.ts` → `dist/server/stdio.js` | For local MCP hosts |
+| Bridge Lab | `src/lab/*`, `index.html` | Static page. Runs the real server in the page, renders the exact resource in a sandboxed iframe, and adds a text-only pane, a protocol log, evidence and measurement panels. |
+| Harness | `harness/*`, `tests/harness/*` | Headless exact-bundle runs with declarative scenarios and a bounded trace |
+| Comparison | `measure/*` | Six equal-authority read tasks, two policy demonstrations, and a text-mode replay |
+| Docs | `docs/SECURITY.md`, `docs/HARNESS.md`, `docs/MEASUREMENT.md`, `docs/LIMITATIONS.md` | Claims mapped to cases, with honest evidence layers |
 
-- `npm install`, `npm test`, `npm run typecheck`, and `npm run dev`
-- The stdio process in `server/main.ts`
-- Browser execution of the HTML view, including a real double iframe
-- Bolt Database, RLS with two users, and the edge function
-- Any live model comparison
+## Tools
 
-The deferred list is in [DEVELOPMENT-STATUS.md](DEVELOPMENT-STATUS.md). [BOLT-HANDOFF.md](BOLT-HANDOFF.md) is the provisioning inventory. The intended Bolt action is inspection, not provisioning, until those checks have run.
+| Tool | Visible to | Purpose |
+|---|---|---|
+| `open_approval_desk` | model, app | Opens the desk on a filtered page. The only tool linked to the UI. |
+| `list_approvals` | model, app | Filter, sort and page; returns category and risk counts |
+| `get_approval` | model, app | Full detail and history for one id |
+| `prepare_decision` | app | Binds version, decision and reason to a statement and a nonce. Records nothing. |
+| `submit_decision` | app | Records once, for the exact statement, while the request is still pending at that version |
 
-## Demo journey
+**What this does not prove:** the app does not prove a human approved anything. A host that can call prepare and submit can do both itself. Visibility is enforced by host policy.
 
-The in-page harness replay, and `runDecisionJourney` in source, do this:
+## Requirements
 
-1. Open an MCP session and send `ui/initialize`, then `ui/notifications/initialized`.
-2. Drop a host `tool-result` that arrives before that notification.
-3. Show the synthetic queue. Approve "Rename the sandbox label" only after the confirmation token and the exact statement match.
-4. Deny "Export support tickets" with the note "Needs a narrower folder."
-5. Leave the text-only audience unable to call the write tools.
+- Node 22.6 or later
+- No environment variables, credentials or accounts
+- No database
 
-The stub actor in that replay is not a signed-in user. With no `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`, the preview explains that commit stays disabled. It does not invent a successful write.
+## Commands
 
-## Later commands
-
-From this directory, after a normal install:
+None of these have been run yet.
 
 ```sh
-npm install
+npm install            # once; commit the real package-lock.json
+npm run build:view     # view IIFE, then embed → server/generated/view-html.ts (gitignored)
 npm run typecheck
-npm test
-npm run dev
+npm run build          # view → Lab (dist/) → stdio server (dist/server/stdio.js)
+npm test               # unit, contract, security and harness suites (Vitest)
+npm run test:stdio     # spawns dist/server/stdio.js from an unrelated directory
+npm run measure:replay # text-mode replay; prints JSON
+npm run dev            # Lab dev server; claim a port with agent-ports first
 ```
 
-The dev server is Vite on port 5173. Tests target Node 22 or newer via `node --experimental-strip-types --test`. The lockfile is not committed yet; add it with the install.
+To connect a local MCP host, run `node <absolute path to repo>/dist/server/stdio.js`. Do not use `npx`; the package is not published.
 
-Local stdio, still unverified:
+## Legacy files
 
-```sh
-node --experimental-strip-types server/main.ts
-```
+The earlier Grok "Confirm Queue" source is still on disk:
 
-That process serves the model audience only. It cannot commit. `CONFIRM_ACTOR_ID` selects an in-memory owner for reads. It is not authentication.
+- `server/main.ts`
+- `src/{App.tsx,main.tsx,domain,harness,lib,mcp,ui}`
+- `supabase/`
+- `tests/*.test.ts`
+- `docs/SECURITY-NOTE.md`
+- `docs/UI-VS-TEXT.md`
+- `fixtures/host-simulations.json`
 
-## Layout
+None of it is active. It is excluded from tsconfig, the test globs and the build. See `BOLT-HANDOFF.md`. Do not apply or deploy it.
 
-| Path | Role |
-|---|---|
-| `src/domain` | Rules shared by the harness and the page |
-| `src/mcp` | Tool descriptors, JSON-RPC, HTML document, stdio frames |
-| `src/harness` | Simulated host bridge and the demo journey |
-| `src/ui` | React preview, security note, measurement |
-| `server/main.ts` | Optional local stdio entry. Not a Bolt function |
-| `supabase/migrations` | Bolt Database schema and security-definer functions |
-| `supabase/functions/approval-decision` | User-JWT decision endpoint |
-| `docs` | Security note, harness, and measurement limits |
+## Licence
 
-## Security
-
-Read [docs/SECURITY-NOTE.md](docs/SECURITY-NOTE.md). The short version: the iframe is not the trust boundary, write tools are app-only, and a commit needs a matching unused token. None of the runtime sandbox or database checks have been executed.
+MIT (see `LICENSE`). See `NOTICE` for provenance.

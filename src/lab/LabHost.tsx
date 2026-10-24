@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { QueryInput } from "../../server/domain/schemas.ts";
 import { DATASET_SHA256, VIEW_HTML, VIEW_HTML_SHA256 } from "../../server/generated/view-html.ts";
 import { BridgeLog } from "./BridgeLog.tsx";
+import { Evidence } from "./Evidence.tsx";
+import { Measure } from "./Measure.tsx";
 import { buildEnvelope, type Envelope } from "./csp.ts";
 import type { HostController, HostState } from "./hostController.ts";
 import { startLabSession, type LabSession } from "./labSession.ts";
@@ -187,6 +189,8 @@ export function LabHost() {
               datasetSha256: DATASET_SHA256,
             }}
           />
+          <Evidence />
+          <Measure />
         </div>
       ) : null}
     </div>

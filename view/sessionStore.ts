@@ -479,7 +479,8 @@ export function createViewSession(connector: Connector, options: { initTimeoutMs
       return;
     }
     const parsed = SubmitOutputSchema.safeParse(result.structuredContent);
-    if (!parsed.success) {
+    // A result that does not echo what was prepared is treated as an unknown outcome.
+    if (!parsed.success || parsed.data.id !== forId || parsed.data.decision !== prepared.decision) {
       set({
         ...invalidatePreparation(),
         submit: { status: "unknown", result: null, error: "The submit result did not match the schema.", forId },

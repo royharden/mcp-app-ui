@@ -106,6 +106,7 @@ export function ConfirmDialog({ prepared, submitting, onCancel, onConfirm }: Con
         aria-labelledby="confirm-heading"
         aria-describedby="confirm-statement confirm-note"
         className="dialog"
+        tabIndex={-1}
         onKeyDown={onKeyDown}
       >
         <h2 id="confirm-heading" ref={headingRef} tabIndex={-1}>

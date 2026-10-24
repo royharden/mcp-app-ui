@@ -19,7 +19,12 @@ export function Detail({ snapshot, onDecision, onReason, onPrepare, onTellAssist
   const pending = detail?.status === "pending" && !decidedHere;
   const busy = preparation.status === "preparing" || submit.status === "submitting";
   const canPrepare =
-    snapshot.phase === "ready" && pending && draft.decision !== null && draft.reason.trim().length > 0 && !busy;
+    snapshot.phase === "ready" &&
+    pending &&
+    !selection.loading &&
+    draft.decision !== null &&
+    draft.reason.trim().length > 0 &&
+    !busy;
 
   return (
     <aside className="detail" aria-labelledby="detail-heading">

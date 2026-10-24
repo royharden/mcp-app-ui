@@ -30,7 +30,7 @@ export function ViewApp({ session }: { session: ViewSession }) {
     const id = snapshot.selection.id;
     session.select(null);
     setTimeout(() => {
-      const row = id ? document.querySelector<HTMLElement>(`[data-action="select"][data-id="${id}"]`) : null;
+      const row = id ? document.querySelector<HTMLElement>(`[data-action="select"][data-id="${CSS.escape(id)}"]`) : null;
       (row ?? document.getElementById("queue-heading"))?.focus();
     }, 0);
   }
