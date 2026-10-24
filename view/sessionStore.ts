@@ -483,7 +483,7 @@ export function createViewSession(connector: Connector, options: { initTimeoutMs
     if (!parsed.success || parsed.data.id !== forId || parsed.data.decision !== prepared.decision) {
       set({
         ...invalidatePreparation(),
-        submit: { status: "unknown", result: null, error: "The submit result did not match the schema.", forId },
+        submit: { status: "unknown", result: null, error: "The submit result did not match the prepared decision.", forId },
         ...announce("Outcome unknown. Refreshing the request."),
       });
       if (generation === snapshot.selection.generation) await refreshAfterUncertainOutcome(prepared.id, generation);

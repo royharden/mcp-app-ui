@@ -10,6 +10,9 @@
 // Run later (authorized validation): npm run measure:replay
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
+import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
+import pkg from "../package.json" with { type: "json" };
 import tasks from "./tasks.v1.json" with { type: "json" };
 import { createSession } from "../server/runtime.ts";
 
@@ -65,12 +68,24 @@ export function extract(kind: string, texts: string[], oracle: Record<string, un
   }
 }
 
+/** Structural equality that ignores object key order. */
+export function deepEqual(a: unknown, b: unknown): boolean {
+  if (a === b) return true;
+  if (Array.isArray(a) || Array.isArray(b)) {
+    return Array.isArray(a) && Array.isArray(b) && a.length === b.length && a.every((x, i) => deepEqual(x, b[i]));
+  }
+  if (a && b && typeof a === "object" && typeof b === "object") {
+    const ka = Object.keys(a).sort();
+    const kb = Object.keys(b).sort();
+    return deepEqual(ka, kb) && ka.every((k) => deepEqual((a as Record<string, unknown>)[k], (b as Record<string, unknown>)[k]));
+  }
+  return false;
+}
+
 /** Predicate: every oracle field must equal the extracted answer's field. */
 export function satisfies(answer: unknown, oracle: Record<string, unknown>): boolean {
   if (!answer || typeof answer !== "object") return false;
-  return Object.entries(oracle).every(
-    ([k, v]) => JSON.stringify((answer as Record<string, unknown>)[k]) === JSON.stringify(v),
-  );
+  return Object.entries(oracle).every(([k, v]) => deepEqual((answer as Record<string, unknown>)[k], v));
 }
 
 async function main(): Promise<void> {
@@ -83,20 +98,28 @@ async function main(): Promise<void> {
     await server.connect(s);
     await client.connect(c);
     const texts: string[] = [];
-    let calls = 0;
+    const calls: Array<{ tool: string; arguments: unknown; query: unknown; total: unknown; nextOffset: unknown }> = [];
     const started = performance.now();
     for (const call of task.text.calls) {
-      calls += 1;
       const result = await client.callTool({ name: call.tool, arguments: call.arguments });
       const content = (result.content ?? []) as Array<{ type: string; text?: string }>;
       texts.push(content.filter((x) => x.type === "text").map((x) => x.text ?? "").join("\n"));
+      // Query parameters and paging actually applied, as reported by the server.
+      const s = (result.structuredContent ?? {}) as { query?: unknown; total?: unknown; nextOffset?: unknown };
+      calls.push({ tool: call.tool, arguments: call.arguments, query: s.query ?? null, total: s.total ?? null, nextOffset: s.nextOffset ?? null });
     }
     const wallMs = performance.now() - started;
     const answer = extract(task.text.extract, texts, task.oracle as Record<string, unknown>);
     results.push({
       task: task.id,
+      order: results.length + 1,
       mode: "text",
-      toolCalls: calls,
+      toolCalls: calls.length,
+      calls,
+      // Text mode has no view: recorded separately and explicitly as zero.
+      hostViewMessages: 0,
+      uiActions: 0,
+      scriptedModelTurns: 1,
       modelVisibleChars: texts.reduce((n, t) => n + t.length, 0),
       tokens: "unavailable (no named tokenizer or telemetry)",
       wallMsReal: Math.round(wallMs * 10) / 10,
@@ -110,7 +133,10 @@ async function main(): Promise<void> {
     JSON.stringify(
       {
         datasetVersion: tasks.datasetVersion,
+        datasetSha256: createHash("sha256").update(readFileSync(new URL("../fixtures/approvals.v1.json", import.meta.url))).digest("hex"),
         runtime: `node ${process.version}`,
+        sdkVersion: pkg.dependencies["@modelcontextprotocol/sdk"],
+        extAppsVersion: pkg.dependencies["@modelcontextprotocol/ext-apps"],
         note: "Characters are not tokens. Tiny structural replays do not establish usability or model performance.",
         results,
       },

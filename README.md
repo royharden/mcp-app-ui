@@ -59,17 +59,7 @@ To connect a local MCP host, run `node <absolute path to repo>/dist/server/stdio
 
 ## Legacy files
 
-The earlier Grok "Confirm Queue" source is still on disk:
-
-- `server/main.ts`
-- `src/{App.tsx,main.tsx,domain,harness,lib,mcp,ui}`
-- `supabase/`
-- `tests/*.test.ts`
-- `docs/SECURITY-NOTE.md`
-- `docs/UI-VS-TEXT.md`
-- `fixtures/host-simulations.json`
-
-None of it is active. It is excluded from tsconfig, the test globs and the build. See `BOLT-HANDOFF.md`. Do not apply or deploy it.
+The earlier Grok "Confirm Queue" source is still on disk, including `supabase/`, `server/main.ts` and parts of `src/`. None of it is active: it is excluded from tsconfig, the test globs and the build. The complete list is in `BOLT-HANDOFF.md`. Do not apply or deploy any of it.
 
 ## Licence
 

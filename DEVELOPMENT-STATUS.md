@@ -7,7 +7,7 @@ Updated 2026-10-24. Branch `s17-approval-desk`. The governing plan is the outer 
 The Dirty Mode construction phase is complete or nearly complete:
 
 - Source, tests and docs are written.
-- Each work package had a static review by a separate reviewer.
+- P1–P3 passed separate static reviews. The P4 and P5 review outcomes are recorded in the outer `STATUS.md`.
 - **Runtime is unverified.** There has been no install, build, test run, server start or browser start.
 
 ## Packages
@@ -34,15 +34,9 @@ The Dirty Mode construction phase is complete or nearly complete:
 - The browser checks (`tests/e2e`)
 - Any real MCP host
 
-## Inactive legacy paths (do not import, build, apply or deploy)
+## Inactive legacy paths
 
-- `server/main.ts`
-- `src/App.tsx`, `src/main.tsx`, `src/styles.css`, `src/vite-env.d.ts`
-- `src/domain/`, `src/harness/`, `src/lib/`, `src/mcp/`, `src/ui/`
-- `supabase/config.toml`, `supabase/functions/approval-decision/`, `supabase/migrations/20261023180000_confirm_queue.sql`
-- `fixtures/host-simulations.json`
-- `tests/*.test.ts` (top level only)
-- `docs/SECURITY-NOTE.md`, `docs/UI-VS-TEXT.md`
+The complete list is in `BOLT-HANDOFF.md` ("Inactive legacy paths"). None of these files are imported, built, tested or deployed.
 
 ## Validation order (next phase, needs authorization)
 

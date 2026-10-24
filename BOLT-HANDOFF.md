@@ -13,17 +13,26 @@ This file is the single product inventory. Updated 2026-10-24.
 | Realtime | Not required |
 | Secrets / environment variables | Not required (see `.env.example`) |
 
-## Inactive legacy paths: do not apply, deploy or provision
+## Inactive legacy paths: do not import, build, apply, deploy or provision
 
-These belong to the superseded Grok "Confirm Queue" and are kept only as history:
+This is the single, complete list (42 tracked files). README.md and DEVELOPMENT-STATUS.md point here. They are the superseded Grok "Confirm Queue", kept as history, excluded from tsconfig, the Vitest globs and every Vite input:
 
-- `supabase/migrations/20261023180000_confirm_queue.sql`
-- `supabase/functions/approval-decision/index.ts`
-- `supabase/config.toml`
-- `src/lib/*` (the Supabase client), `src/App.tsx`, `src/main.tsx`, `src/domain`, `src/mcp`, `src/ui`, `src/harness`
-- `server/main.ts` (hand-written Content-Length framing)
+- Database / edge (never apply or deploy):
+  - `supabase/config.toml`
+  - `supabase/functions/approval-decision/index.ts`
+  - `supabase/migrations/20261023180000_confirm_queue.sql`
+- Server: `server/main.ts` (hand-written Content-Length framing)
+- Page: `src/App.tsx`, `src/main.tsx`, `src/styles.css`, `src/vite-env.d.ts`
+- `src/domain/`: `confirm.ts`, `constants.ts`, `errors.ts`, `measure.ts`, `securityPolicy.ts`, `seed.ts`, `store.ts`, `textFallback.ts`, `types.ts`
+- `src/harness/`: `bridge.ts`, `fixtures.ts`, `journey.ts`
+- `src/lib/`: `liveQueue.ts`, `supabase.ts` (the Supabase client)
+- `src/mcp/`: `descriptors.ts`, `framing.ts`, `htmlResource.ts`, `server.ts`
+- `src/ui/`: `LiveDesk.tsx`, `MeasureView.tsx`, `QueuePreview.tsx`, `SecurityNote.tsx`
+- Fixture: `fixtures/host-simulations.json`
+- Top-level tests (node:test, not run by Vitest): `tests/bridge.test.ts`, `tests/confirm.test.ts`, `tests/framing.test.ts`, `tests/htmlResource.test.ts`, `tests/measure.test.ts`, `tests/persistenceContract.test.ts`, `tests/securityPolicy.test.ts`, `tests/serverContract.test.ts`, `tests/textFallback.test.ts`
+- Docs: `docs/SECURITY-NOTE.md`, `docs/UI-VS-TEXT.md`
 
-If any of them is found already applied or deployed somewhere, reconcile that baseline first. Do not assume it was never applied.
+If any of the database/edge files is found already applied or deployed somewhere, reconcile that baseline first. Do not assume it was never applied. Deleting these files is separate cleanup work.
 
 ## Frontend
 
