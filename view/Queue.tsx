@@ -26,7 +26,9 @@ export function Queue({ snapshot, onQuery, onSelect }: QueueProps) {
   const disabled = snapshot.phase !== "ready" || queueLoading;
   return (
     <section aria-labelledby="queue-heading" className="queue">
-      <h2 id="queue-heading">Queue</h2>
+      <h2 id="queue-heading" tabIndex={-1}>
+        Queue
+      </h2>
       <form className="filters" onSubmit={(e) => e.preventDefault()}>
         <label>
           Status

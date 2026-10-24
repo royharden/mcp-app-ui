@@ -33,6 +33,26 @@ export function ConfirmDialog({ prepared, submitting, onCancel, onConfirm }: Con
   // Set once a submit starts; the dialog then closes only because that submit finished.
   const submittedRef = useRef(false);
 
+  // Declared first: React runs unmount cleanups in declaration order, so the desk stops being
+  // inert before the focus-return cleanup below runs.
+  // Modal for real: the rest of the desk is inert while the dialog is open, and any focus that
+  // still escapes (e.g. a click on the backdrop) is pulled back into the dialog.
+  useEffect(() => {
+    const background = Array.from(document.querySelectorAll<HTMLElement>(".desk-head, .layout"));
+    for (const el of background) el.setAttribute("inert", "");
+    const onFocusIn = (event: FocusEvent) => {
+      const dialog = dialogRef.current;
+      if (dialog && event.target instanceof Node && !dialog.contains(event.target)) {
+        (cancelRef.current && !cancelRef.current.disabled ? cancelRef.current : headingRef.current)?.focus();
+      }
+    };
+    document.addEventListener("focusin", onFocusIn);
+    return () => {
+      document.removeEventListener("focusin", onFocusIn);
+      for (const el of background) el.removeAttribute("inert");
+    };
+  }, []);
+
   useEffect(() => {
     cancelRef.current?.focus();
     // The opener (Review button) is disabled while preparing, so return focus explicitly.
@@ -72,7 +92,13 @@ export function ConfirmDialog({ prepared, submitting, onCancel, onConfirm }: Con
   }
 
   return (
-    <div className="backdrop">
+    <div
+      className="backdrop"
+      onMouseDown={(event) => {
+        // A click on the backdrop must not move focus out of the dialog.
+        if (event.target === event.currentTarget) event.preventDefault();
+      }}
+    >
       <div
         ref={dialogRef}
         role="dialog"

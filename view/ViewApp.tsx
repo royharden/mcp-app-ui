@@ -24,6 +24,17 @@ export function ViewApp({ session }: { session: ViewSession }) {
 
   const prepared = snapshot.preparation.status === "ready" ? snapshot.preparation.prepared : null;
 
+  // Closing the drawer removes the focused Close button; return focus to the row's Open
+  // button (or the queue heading) after React commits.
+  function closeDrawer() {
+    const id = snapshot.selection.id;
+    session.select(null);
+    setTimeout(() => {
+      const row = id ? document.querySelector<HTMLElement>(`[data-action="select"][data-id="${id}"]`) : null;
+      (row ?? document.getElementById("queue-heading"))?.focus();
+    }, 0);
+  }
+
   return (
     <main className="desk" aria-busy={snapshot.phase === "initializing"}>
       <header className="desk-head">
@@ -50,7 +61,7 @@ export function ViewApp({ session }: { session: ViewSession }) {
           onReason={session.setReason}
           onPrepare={() => void session.prepare()}
           onTellAssistant={() => void session.tellAssistant()}
-          onClose={() => session.select(null)}
+          onClose={closeDrawer}
         />
       </div>
       {prepared ? (

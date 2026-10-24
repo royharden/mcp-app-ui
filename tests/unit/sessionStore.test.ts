@@ -257,6 +257,54 @@ describe("view session store", () => {
       expect(names.at(-1)).toBe("get_approval");
     });
 
+    it("while a submit is in flight, selection, draft and filters cannot change; a second prepare is refused", async () => {
+      const { app, session } = await preparedSession();
+      const callsBefore = app.calls.length;
+      void session.prepare();
+      expect(app.calls.length).toBe(callsBefore);
+      void session.confirm();
+      session.select(null);
+      session.setReason("changed mid-submit");
+      await session.query({ category: "travel" });
+      const s = session.getSnapshot();
+      expect(s.selection.id).toBe("REQ-104");
+      expect(s.draft.reason).toBe("ok");
+      expect(s.submit.status).toBe("submitting");
+      expect(app.calls.filter((c) => c.name === "list_approvals")).toHaveLength(0);
+      app.calls.at(-1)!.reject(new Error("Request timed out"));
+      await flush();
+      expect(session.getSnapshot().submit).toMatchObject({ status: "unknown", forId: "REQ-104" });
+    });
+
+    it("a late ui/message answer for an older decision cannot change a newer decision's state", async () => {
+      let answer: (value: Record<string, unknown>) => void = () => {};
+      const { app, session } = await preparedSession();
+      (app.sendMessage as ReturnType<typeof vi.fn>).mockImplementationOnce(
+        () => new Promise<Record<string, unknown>>((resolve) => (answer = resolve)),
+      );
+      void session.confirm();
+      app.calls.at(-1)!.resolve(recorded);
+      await flush();
+      void session.tellAssistant();
+      expect(session.getSnapshot().message.status).toBe("sending");
+      // A newer recorded decision replaces the current result.
+      session.select("REQ-104");
+      app.calls.at(-1)!.resolve(detail());
+      await flush();
+      session.setDecision("approve");
+      session.setReason("again");
+      void session.prepare();
+      app.calls.at(-1)!.resolve(prepared("again"));
+      await flush();
+      void session.confirm();
+      app.calls.at(-1)!.resolve({ ...recorded, structuredContent: { ...(recorded.structuredContent as object) } } as CallToolResult);
+      await flush();
+      expect(session.getSnapshot().message.status).toBe("idle");
+      answer({});
+      await flush();
+      expect(session.getSnapshot().message.status).toBe("idle");
+    });
+
     it("CANCEL-01: after host teardown, final teardown still closes the App and detaches listeners", async () => {
       vi.useFakeTimers();
       try {

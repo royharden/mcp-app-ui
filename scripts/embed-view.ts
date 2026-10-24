@@ -44,7 +44,10 @@ const safeStyle = style.replace(/<\/style/gi, "<\\/style");
 for (const marker of ["/*__VIEW_STYLE__*/", "/*__VIEW_SCRIPT__*/"]) {
   if (template.split(marker).length !== 2) fail(`template must contain ${marker} exactly once`);
 }
-const html = template.replace("/*__VIEW_STYLE__*/", () => safeStyle).replace("/*__VIEW_SCRIPT__*/", () => safeScript);
+// One pass, so text inserted for one marker is never scanned for the other.
+const html = template.replace(/\/\*__VIEW_(STYLE|SCRIPT)__\*\//g, (_m, which: string) =>
+  which === "STYLE" ? safeStyle : safeScript,
+);
 
 // Check the template's own tags, not the bundle: minified React contains "<script>" text
 // inside string literals, which is inert once the bundle sits inside one script element.

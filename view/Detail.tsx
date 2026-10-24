@@ -14,7 +14,9 @@ export function Detail({ snapshot, onDecision, onReason, onPrepare, onTellAssist
   const { selection, draft, preparation, submit, message } = snapshot;
   if (!selection.id) return null;
   const detail = selection.detail;
-  const pending = detail?.status === "pending";
+  // Until the reloaded detail arrives, a just-recorded request must not offer a new decision.
+  const decidedHere = submit.status === "recorded" && submit.forId === selection.id;
+  const pending = detail?.status === "pending" && !decidedHere;
   const busy = preparation.status === "preparing" || submit.status === "submitting";
   const canPrepare =
     snapshot.phase === "ready" && pending && draft.decision !== null && draft.reason.trim().length > 0 && !busy;
