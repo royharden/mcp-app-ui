@@ -10,7 +10,7 @@ export const TRUNCATION_MARKER = " [truncated]";
 
 // C0/C1 controls, Unicode format characters (bidi overrides/isolates, zero-width, BOM, soft hyphen),
 // line and paragraph separators.
-const UNSAFE_CHARS = /[\p{Cc}\p{Cf}  ]/gu;
+const UNSAFE_CHARS = /[\p{Cc}\p{Cf}\u2028\u2029]/gu;
 
 export interface SafeText {
   text: string;

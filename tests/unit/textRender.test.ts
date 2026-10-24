@@ -19,7 +19,7 @@ describe("SEC-01 shared safe formatting", () => {
     const title = safeTitle(req109.title);
     expect(title.truncated).toBe(true);
     expect(title.text.endsWith(TRUNCATION_MARKER)).toBe(true);
-    expect(title.text).not.toMatch(/[‪-‮]/);
+    expect(title.text).not.toMatch(/[\u202A-\u202E]/);
     expect(title.text).toContain("<img src=x onerror=alert(1)>");
   });
 

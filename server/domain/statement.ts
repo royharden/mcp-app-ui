@@ -7,7 +7,7 @@ import { formatMoney, quote, safeTitle } from "./textRender.ts";
 export const REASON_MAX = 240;
 
 // Newlines and other controls, bidi embeddings/overrides/isolates/marks, zero-width characters.
-const REJECTED_REASON_CHARS = /[\p{Cc}  ​-‏‪-‮⁠-⁩؜﻿]/u;
+const REJECTED_REASON_CHARS = /[\p{Cc}\u2028\u2029\u200B-\u200F\u202A-\u202E\u2060-\u2069\u061C\uFEFF]/u;
 
 /**
  * Normalize once at prepare time: NFC, trim outer whitespace, 1..240 code points.

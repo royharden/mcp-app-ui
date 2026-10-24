@@ -132,6 +132,21 @@ describe("decision transitions through real handlers", () => {
     await prepare(s, "REQ-111", "approve", "After expiry");
   });
 
+  it("DEC-03: used tombstones count toward capacity until their original expiry", async () => {
+    const s = await connectSession({ capacity: 1 });
+    close = s.close;
+    const p = await prepare(s, "REQ-101", "approve", "Only one");
+    const ok = await s.call("submit_decision", { id: "REQ-101", decision: "approve", nonce: p.nonce, statement: p.statement });
+    expect(ok.isError).toBeFalsy();
+    const refused = await s.call("prepare_decision", { id: "REQ-102", decision: "approve", reason: "Next" });
+    expect(errorCode(refused)).toBe("nonce_capacity");
+    s.time.advance(NONCE_TTL_MS);
+    await prepare(s, "REQ-102", "approve", "Next");
+    // After cleanup the old nonce is unknown, never reusable authority.
+    const stale = await s.call("submit_decision", { id: "REQ-101", decision: "approve", nonce: p.nonce, statement: p.statement });
+    expect(errorCode(stale)).toBe("nonce_unknown");
+  });
+
   it("DEC-04: a changed reason needs a new preparation", async () => {
     const s = await connectSession();
     close = s.close;

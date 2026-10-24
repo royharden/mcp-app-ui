@@ -14,14 +14,14 @@ describe("canonical statement and reason normalization", () => {
   });
 
   it("normalizes NFC and trims once", () => {
-    expect(normalizeReason("  Café ok  ")).toBe("Café ok");
+    expect(normalizeReason("  Cafe\u0301 ok  ")).toBe("Café ok");
   });
 
   it.each([
     ["empty", "   "],
     ["newline", "line one\nline two"],
-    ["bidi override", "ok ‮ reversed"],
-    ["zero width", "zero​width"],
+    ["bidi override", "ok \u202E reversed"],
+    ["zero width", "zero\u200Bwidth"],
     ["too long", "x".repeat(241)],
   ])("rejects %s reasons with invalid_input", (_label, value) => {
     let caught: unknown;
