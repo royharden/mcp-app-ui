@@ -1,0 +1,149 @@
+:root {
+  --bg: #f6f7f9;
+  --panel: #ffffff;
+  --fg: #1d2330;
+  --muted: #5b6475;
+  --line: #d8dde6;
+  --err: #b42318;
+  --note: #fff6e0;
+  color-scheme: light;
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size: 14px;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #101317;
+    --panel: #171b21;
+    --fg: #e6e9ef;
+    --muted: #a0a8b8;
+    --line: #333a46;
+    --err: #ff8a80;
+    --note: #3a2f12;
+    color-scheme: dark;
+  }
+}
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+}
+.lab {
+  padding: 16px;
+}
+.lab-head h1 {
+  margin: 0 0 8px;
+  font-size: 1.4rem;
+}
+.banner {
+  background: var(--note);
+  padding: 8px 12px;
+  border-radius: 6px;
+}
+.lab-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  margin: 8px 0 16px;
+}
+.lab-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  gap: 16px;
+}
+.lab-grid > :first-child {
+  grid-row: span 2;
+}
+@media (max-width: 900px) {
+  .lab-grid {
+    grid-template-columns: 1fr;
+  }
+}
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px;
+  min-width: 0;
+}
+.panel h2 {
+  margin-top: 0;
+  font-size: 1.1rem;
+}
+.panel-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.identity {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 2px 12px;
+  font-size: 0.85rem;
+}
+.identity dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.policy {
+  display: block;
+  overflow-wrap: anywhere;
+  font-size: 0.8rem;
+}
+.frame-container iframe {
+  width: 100%;
+  height: 720px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fff;
+}
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: flex-end;
+  margin-bottom: 8px;
+}
+.filters label {
+  display: flex;
+  flex-direction: column;
+  font-size: 0.85rem;
+}
+.text-output {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 420px;
+  overflow: auto;
+  border: 1px solid var(--line);
+  padding: 8px;
+  font-size: 0.8rem;
+}
+.log {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  max-height: 480px;
+  overflow: auto;
+  font-size: 0.75rem;
+}
+.log li {
+  border-bottom: 1px solid var(--line);
+  padding: 4px 0;
+}
+.log-meta {
+  display: block;
+  color: var(--muted);
+}
+.log code {
+  overflow-wrap: anywhere;
+}
+.log-error code,
+.error {
+  color: var(--err);
+}
+.muted {
+  color: var(--muted);
+}
+.small {
+  font-size: 0.85rem;
+}
