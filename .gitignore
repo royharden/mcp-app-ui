@@ -9,3 +9,19 @@ dist/
 server/generated/view-html.ts
 # Explicit-click exports from the Lab/harness.
 traces/
+
+# Local secrets, credentials and generated artifacts
+.creds/
+ArchiveManager-creds.txt
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.zip
+.venv/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+coverage/
