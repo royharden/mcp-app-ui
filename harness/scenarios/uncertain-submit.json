@@ -1,0 +1,21 @@
+{
+  "id": "uncertain-submit",
+  "description": "Injected fault: the real submit commits but its reply is lost. The view must show an unknown outcome, refresh, and not retry. Not a real-server success.",
+  "mode": "injectedFault",
+  "datasetVersion": "approvals-v1",
+  "hostContext": { "theme": "light", "locale": "en-US", "platform": "web", "displayMode": "inline" },
+  "initialToolInput": {},
+  "faults": ["submitTimeoutAfterCommit"],
+  "actions": [
+    { "do": "connect" },
+    { "do": "select", "id": "REQ-107" },
+    { "do": "prepare", "decision": "approve", "reason": "Licence approved" },
+    { "do": "confirm" }
+  ],
+  "expected": {
+    "statuses": { "REQ-107": "approved" },
+    "historyLengths": { "REQ-107": 1 },
+    "outcome": "unknown",
+    "acceptedMessages": []
+  }
+}

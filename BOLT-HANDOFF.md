@@ -1,100 +1,70 @@
-# Bolt infrastructure handoff: Confirm Queue
+# Bolt.new handoff: MCP Approval Desk
 
-Dirty Mode construction - runtime unverified. This inventory describes source that has not been installed, started, migrated, or deployed.
+This file is the single product inventory. Updated 2026-10-24.
 
-## Target and readiness
+## Backend needs
 
-- Repository / branch / prepared revision: local git only, no remote. Branch `main` after the local commits. Do not treat a commit hash in this file as a deployment pin.
-- App root: this directory (`mcp-app-ui`), the inner repo.
-- Database: Bolt Database.
-- Target: fresh empty database. Do not attach or replace an existing project.
-- Existing baseline / applied migrations: Unknown. The SQL file is not proof it was applied.
-- Hosting: prepare only. Do not publish.
-- Publication: prepare only.
-- Bolt action: inspect and prepare only.
-- Status: implementation present in source; infrastructure pending; runtime unverified.
-- Owner prerequisites: GitHub access if this repo is later imported; a fresh Bolt Database; email/password auth settings; server secrets entered by the owner.
-
-The MCP stdio process (`server/main.ts`) is a local host adapter. Do not deploy it as a Bolt function. Bolt does not need to run it for the web desk.
-
-## Build and connection
-
-| Item | Exact command or configuration name |
+| Item | Needed? |
 |---|---|
-| Runtime / package manager | Node 22 or newer for the test script. npm. No lockfile yet |
-| Frozen install / dev | After `npm install` produces a lockfile: `npm ci`, then `npm run dev` (Vite, port 5173) |
-| Build / output | `npm run build`. Vite writes `dist/`. Not run |
-| Type/lint/tests | `npm run typecheck`, `npm test`. Not run. Deno function is outside `tsconfig.json` |
-| Client file / public env names | `src/lib/supabase.ts`. `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` |
-| Missing config behavior | Setup banner. Local preview does not commit. Decision calls return an error |
+| Database | **Not required.** All state is in memory, per tab or per process. |
+| Server functions / edge functions | Not required |
+| Auth | Not required |
+| Storage | Not required |
+| Realtime | Not required |
+| Secrets / environment variables | Not required (see `.env.example`) |
 
-## Database
+## Inactive legacy paths: do not import, build, apply, deploy or provision
 
-| Order | Exact migration file | Resources / dependencies | Applied status |
-|---|---|---|---|
-| 1 | `supabase/migrations/20261023180000_confirm_queue.sql` | `approvals`, `decision_challenges`, `decisions`, RLS, `request_approval_decision`, `commit_approval_decision`. Requires `auth.users` and `gen_random_uuid()` | Pending |
+This is the single, complete list (42 tracked files). README.md and DEVELOPMENT-STATUS.md point here. They are the superseded Grok "Confirm Queue", kept as history, excluded from tsconfig, the Vitest globs and every Vite input:
 
-- Access model: private per authenticated user. No anonymous access. Challenges have no client grants. Decisions are select-only for the owner. Approvals are select and insert-only, and insert must stay `pending`.
-- Ownership checks: `owner_id = auth.uid()` on client policies. The security-definer functions compare `p_actor` to `owner_id` and are granted only to `service_role`.
-- Extensions/RPC permissions/Realtime: no extra extension is declared. Realtime is not required. Do not grant the two functions to `authenticated`.
-- Seeds: none. The page's three sample rows are in-memory only.
-- Retry rule: inspect migration tracking, apply only this pending file, preserve any rows created after a partial apply, and report drift instead of dropping tables.
+- Database / edge (never apply or deploy):
+  - `supabase/config.toml`
+  - `supabase/functions/approval-decision/index.ts`
+  - `supabase/migrations/20261023180000_confirm_queue.sql`
+- Server: `server/main.ts` (hand-written Content-Length framing)
+- Page: `src/App.tsx`, `src/main.tsx`, `src/styles.css`, `src/vite-env.d.ts`
+- `src/domain/`: `confirm.ts`, `constants.ts`, `errors.ts`, `measure.ts`, `securityPolicy.ts`, `seed.ts`, `store.ts`, `textFallback.ts`, `types.ts`
+- `src/harness/`: `bridge.ts`, `fixtures.ts`, `journey.ts`
+- `src/lib/`: `liveQueue.ts`, `supabase.ts` (the Supabase client)
+- `src/mcp/`: `descriptors.ts`, `framing.ts`, `htmlResource.ts`, `server.ts`
+- `src/ui/`: `LiveDesk.tsx`, `MeasureView.tsx`, `QueuePreview.tsx`, `SecurityNote.tsx`
+- Fixture: `fixtures/host-simulations.json`
+- Top-level tests (node:test, not run by Vitest): `tests/bridge.test.ts`, `tests/confirm.test.ts`, `tests/framing.test.ts`, `tests/htmlResource.test.ts`, `tests/measure.test.ts`, `tests/persistenceContract.test.ts`, `tests/securityPolicy.test.ts`, `tests/serverContract.test.ts`, `tests/textFallback.test.ts`
+- Docs: `docs/SECURITY-NOTE.md`, `docs/UI-VS-TEXT.md`
 
-## Functions
+If any of the database/edge files is found already applied or deployed somewhere, reconcile that baseline first. Do not assume it was never applied. Deleting these files is separate cleanup work.
 
-| Name / source | Caller + auth | Input / output | Resources + secret names | Deploy config |
-|---|---|---|---|---|
-| `approval-decision`; `supabase/functions/approval-decision/index.ts` | Signed-in user JWT. Gateway `verify_jwt` is true, and the handler calls `auth.getUser`. Anon key is not a user | POST `{ step: "request", approvalId, action }` or `{ step: "commit", approvalId, action, token, statement, note }`. JSON `{ ok, text, ... }` or `{ ok: false, error, message }` | Tables above via service role. Secrets: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`. Optional `CORS_ALLOW_ORIGINS` | `supabase/config.toml` sets `verify_jwt = true` |
+## Frontend
 
-- CORS/preflight: `POST` and `OPTIONS`. Allowed headers: `authorization`, `apikey`, `content-type`. Allowed origins: `http://localhost:5173`, `http://127.0.0.1:5173`, plus comma-separated `CORS_ALLOW_ORIGINS`. Other browser origins get 403. CORS is not authentication.
-- Identity/ownership and abuse controls: handler rejects a missing or non-user JWT before using the service role. SQL locks the approval and the challenge and refuses a second use of a token. No paid API and no rate-limit table.
-- Paid API limits: Not required.
-- Webhooks: Not required.
-- Platform credentials: Bolt may inject database credentials. Still set the three named secrets if the function runtime does not provide them. Never copy another project's values.
+- Root `index.html` → `src/lab/main.tsx`: the Bridge Lab, a static page.
+- Build order:
+  1. `npm run build:view`, which writes `dist/view` and the gitignored `server/generated/view-html.ts`
+  2. `npm run build:lab`, which writes `dist/`
+  3. `npm run build:server`, which writes `dist/server/stdio.js`
+- Static hosting runs only the inspection page. An external MCP host still needs the local stdio process.
 
-## Server secrets to enter through settings
+## Status of build artefacts
 
-| Name | Consumer | Required / optional | Owner source |
-|---|---|---|---|
-| `SUPABASE_URL` | `approval-decision` | Required for a live call | Bolt Database project URL |
-| `SUPABASE_ANON_KEY` | `approval-decision` user lookup | Required for a live call | Project API key |
-| `SUPABASE_SERVICE_ROLE_KEY` | `approval-decision` after the JWT check | Required for a live call | Service role secret |
-| `CORS_ALLOW_ORIGINS` | `approval-decision` | Optional until a hosted origin exists | Comma-separated origins, no paths |
+| Artefact | Status |
+|---|---|
+| Lockfile | **Absent.** It must come from a real `npm install`. |
+| Generated view module | **Absent** until `npm run build:view`. Never handwritten. |
+| Any build or test run | **None** |
 
-Missing-secret behavior: HTTP 500 `{ "ok": false, "error": "missing_config", "message": "Set SUPABASE_URL, SUPABASE_ANON_KEY, and SUPABASE_SERVICE_ROLE_KEY in server secrets." }`. No write.
+## Local stdio (for the owner)
 
-Public configuration is only `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`. Backend secrets never use a `VITE_` prefix.
+1. `npm install`
+2. `npm run build`
+3. Point a local MCP host at `node <absolute path>/dist/server/stdio.js`
 
-`CONFIRM_ACTOR_ID` is not a Bolt secret. It is an optional local stdio owner id and is not authentication.
+The process resets its queue on every restart.
 
-## Auth, storage, and external steps
+## Outstanding checks
 
-- Auth providers/confirmation: email and password. Confirmation behavior is an owner setting. The page tells the person to confirm email when sign-up returns no session.
-- Site URL and callback/recovery routes: Site URL is the hosted origin, once chosen. The app has no separate recovery route; Supabase's built-in recovery needs that Site URL and the redirect allowlist, including `http://localhost:5173` for local dev.
-- Buckets: Not required.
-- Realtime: Not required.
-- Scheduled/long jobs: Not required.
-- Outside services: a future MCP host that can iframe the resource. Not required to inspect this repo.
-- Real integrations: Bolt Database auth and `approval-decision`. Explicit demos/stubs: in-memory seed, harness replay, and stub actor `owner-demo`.
+See `DEVELOPMENT-STATUS.md`, "Validation order", and `docs/LIMITATIONS.md`.
 
-## Acceptance checks and receipts
+## Prompt for Bolt (inspection and preparation only)
 
-Use synthetic data. Unexecuted checks stay pending.
+> Inspect this repository. It is a static Vite + React page (the "Bridge Lab") with no backend, database, auth, storage or secrets. Do not create or connect a database, and do not apply or deploy anything under `supabase/`, which holds inactive legacy files. Report whether `npm install`, `npm run build:view` and `npm run build:lab` would work in this environment, and list any errors. Do not publish, deploy or provision anything.
 
-| Check | Expected result | Outcome / receipt |
-|---|---|---|
-| Import/install/build | Branch loads; frozen install and build pass | Pending. Not run |
-| Schema | The one migration is the only pending change and its tables, policies, and two functions exist | Pending. Not applied |
-| Function round trip | Signed-in request returns a statement and token; commit changes status once | Pending. Not deployed |
-| Auth/isolation | No bearer and anon-key bearer fail. User B cannot read or commit user A's row. Client update of `approvals` fails | Pending |
-| Missing secret | `missing_config`, no row change, secret values absent from the body | Pending |
-| Uploads, if needed | Not required | Not required |
-| Webhooks, if needed | Not required | Not required |
-| Jobs, if needed | Not required | Not required |
-| Publish, if requested | Not requested | Not requested |
-
-## One prompt after GitHub import
-
-### Inspect and prepare only
-
-> Read BOLT-HANDOFF.md and inspect the imported source at the intended branch/revision. Compare proposed resources with implemented files, reconcile unknown migration baselines through read-only history/schema inspection when access is available, and report concrete deployment gaps and owner/external blockers. Preserve the app design and existing database/data. Prepare a reviewable setup plan with actual file/resource names and pending checks. Do not create or change cloud resources, apply migrations, deploy functions, enter secrets, enable schedules, or publish. Do not describe proposed resources or unexecuted checks as complete.
+Writing this file authorizes no push, import, provisioning or publication. Change the prompt to "provision" only after the validation steps have real receipts, and only if Roy asks.

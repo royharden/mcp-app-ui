@@ -1,0 +1,21 @@
+{
+  "id": "cancel-leaves-pending",
+  "description": "Prepare a decision, cancel the confirmation: nothing is recorded and no history is added.",
+  "mode": "realHandlers",
+  "datasetVersion": "approvals-v1",
+  "hostContext": { "theme": "light", "locale": "en-US", "platform": "web", "displayMode": "inline" },
+  "initialToolInput": { "category": "equipment" },
+  "faults": [],
+  "actions": [
+    { "do": "connect" },
+    { "do": "select", "id": "REQ-108" },
+    { "do": "prepare", "decision": "approve", "reason": "Memory upgrade approved" },
+    { "do": "cancel" }
+  ],
+  "expected": {
+    "statuses": { "REQ-108": "pending" },
+    "historyLengths": { "REQ-108": 0 },
+    "outcome": "none",
+    "acceptedMessages": []
+  }
+}

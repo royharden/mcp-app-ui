@@ -1,0 +1,23 @@
+{
+  "id": "reject-req-105",
+  "description": "Policy demonstration D2: reject REQ-105 after filtering to high risk. Real handlers only.",
+  "mode": "realHandlers",
+  "datasetVersion": "approvals-v1",
+  "hostContext": { "theme": "dark", "locale": "en-US", "platform": "web", "displayMode": "inline" },
+  "initialToolInput": {},
+  "faults": [],
+  "actions": [
+    { "do": "connect" },
+    { "do": "filter", "field": "Risk", "value": "high" },
+    { "do": "select", "id": "REQ-105" },
+    { "do": "prepare", "decision": "reject", "reason": "Over the travel cap" },
+    { "do": "confirm" }
+  ],
+  "expected": {
+    "statuses": { "REQ-105": "rejected", "REQ-104": "pending" },
+    "historyLengths": { "REQ-105": 1 },
+    "outcome": "recorded",
+    "statementShown": "Reject REQ-105 | title=\"Customer onsite visit\" | USD 2400.00 | version=1 | reason=\"Over the travel cap\"",
+    "acceptedMessages": []
+  }
+}

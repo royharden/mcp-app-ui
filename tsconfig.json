@@ -9,11 +9,38 @@
     "noEmit": true,
     "skipLibCheck": true,
     "isolatedModules": true,
+    "resolveJsonModule": true,
+    "allowImportingTsExtensions": true,
     "useDefineForClassFields": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
-    "forceConsistentCasingInFileNames": true
+    "forceConsistentCasingInFileNames": true,
+    "types": ["node", "vite/client"]
   },
-  "include": ["src", "server", "tests", "vite.config.ts"]
+  "include": [
+    "server/createServer.ts",
+    "server/stdio.ts",
+    "server/runtime.ts",
+    "server/domain",
+    "server/repo",
+    "server/generated",
+    "view",
+    "src/lab",
+    "harness",
+    "measure",
+    "scripts",
+    "tests/unit",
+    "tests/contract",
+    "tests/harness",
+    "tests/security",
+    "tests/stdio",
+    "tests/setup.ts",
+    "vite.config.ts",
+    "vite.view.config.ts",
+    "vite.server.config.ts",
+    "vitest.config.ts",
+    "vitest.stdio.config.ts"
+  ],
+  "exclude": ["node_modules", "dist", "supabase", "server/main.ts", "src/domain", "src/harness", "src/lib", "src/mcp", "src/ui", "src/App.tsx", "src/main.tsx", "src/vite-env.d.ts"]
 }

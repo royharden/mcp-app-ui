@@ -1,46 +1,49 @@
 # Development status
 
-Dirty Mode construction. Runtime unverified. Updated 2026-10-23.
+Updated 2026-10-24. Branch `s17-approval-desk`. The governing plan is the outer `PLAN.md`, and the outer `STATUS.md` holds the review log.
 
-## Built in source
+## Phase
 
-- Approval rules, text fallback, frame policy, and the scripted measurement.
-- MCP tool and resource contract, HTML app document, stdio framing, and the headless journey.
-- React preview, security note, measurement table, and the signed-in Bolt Database desk.
-- Migration `supabase/migrations/20261023180000_confirm_queue.sql`.
-- Edge function `supabase/functions/approval-decision`.
+The Dirty Mode construction phase is complete or nearly complete:
 
-## Not done
+- Source, tests and docs are written.
+- P1–P3 passed separate static reviews. The P4 and P5 review outcomes are recorded in the outer `STATUS.md`.
+- **Runtime is unverified.** There has been no install, build, test run, server start or browser start.
 
-No install, typecheck, unit test, dev server, browser pass, migration, function deploy, or stdio run has been executed for this repo.
+## Packages
 
-## Static check in the construction session
-
-Node v24.18.0 parsed 28 TypeScript modules with `node --experimental-strip-types --check` (domain, MCP, harness, browser libraries, stdio entry, and tests). That is syntax only. It is not a typecheck and not a test run.
-
-`src/vite-env.d.ts` is an ambient declaration. Node did not strip it and reported a syntax error on `interface`. That is a checker limit, not a reviewed logic defect.
-
-`.tsx` files were not parsed: Node reports an unknown `.tsx` extension. They were read by hand. `tsc` was not run because dependencies are not installed. The Deno function and the SQL file were not parsed by Node. `package.json` and `fixtures/host-simulations.json` parsed as JSON.
-
-## Deferred validation
-
-| Component | Assumption or skipped check | Later step |
+| Package | Contents | Construction status |
 |---|---|---|
-| Dependencies | Pinned versions in `package.json` resolve | `npm install`, then commit `package-lock.json` |
-| Typecheck | `tsc` is not installed in this session | `npm run typecheck` |
-| Unit tests | Written under `tests/`, not run | `npm test` on Node 22+ |
-| Vite page | Not opened | `npm run dev`, then preview, replay, empty auth, and both write buttons |
-| Migration | SQL not applied | Apply only this pending file on a fresh Bolt Database |
-| RLS | Policies are source | Two users: B cannot read or decide A's row. Direct update of `approvals` fails |
-| Edge function | Deno not started | Deploy with `verify_jwt`. Missing service role returns `missing_config`. Anon key as Bearer returns `unauthenticated` |
-| CORS | Localhost is allowed until configured | Set `CORS_ALLOW_ORIGINS` to the hosted origin and repeat preflight |
-| Auth settings | Email and password assumed | Set Site URL, redirect allowlist, and email confirmation |
-| MCP stdio | `server/main.ts` not started | Run it and call `tools/list` |
-| HTML view | Script not executed in a browser | Rewrite the host origin and complete one confirm |
-| Real sandbox | Policy is a function, not an iframe | Check `allow-scripts` only, unreadable `contentDocument`, wrong-source drop, and no early host push |
-| Measurement | Scripted character counts | Do not cite the table as a model study |
-| Edge types | The Deno file is outside `tsconfig.json` | Typecheck it with Deno or the Bolt function toolchain |
-| Lockfile | Omitted on purpose | Add it after install |
-| Docker | Not used | Not required. A container would need an agent-ports claim first |
+| P1 | Domain, repo, server, stdio, unit/contract/stdio tests | Accepted (Dirty Mode construction) |
+| P2 | View, session store, IIFE build and embed | Accepted (Dirty Mode construction) |
+| P3 | Bridge Lab, host controller, CSP envelope, log, text pane | Accepted (Dirty Mode construction) |
+| P4 | Harness, scenarios, host-gate tests, browser spec, SECURITY/HARNESS docs | See outer STATUS.md |
+| P5 | Comparison tasks and replay, Evidence/Measure panels, docs, handoff | See outer STATUS.md |
 
-`gen_random_uuid()` is assumed to exist in the Bolt Database Postgres. That is true of current Supabase Postgres and is unverified here.
+## Static checks that actually ran
+
+- `node scripts/syntax-check.mjs <tmp> <files>`: strips TypeScript types with Node's `module.stripTypeScriptTypes`, then runs `node --check`. Run on all `.ts` files as each was written; all passed.
+- `.tsx` files could not be parsed here (no TypeScript or esbuild installed). They were read by hand and by the reviewers.
+- `JSON.parse` on `package.json`, `tsconfig.json`, the fixture, the scenarios and `tasks.v1.json`: all passed.
+- A Python scan for raw invisible and control characters in active files: clean.
+
+## Never run
+
+- `npm install`, `npm run typecheck`, `npm run build`
+- `npm test`, `npm run test:stdio`, `npm run measure:replay`
+- The browser checks (`tests/e2e`)
+- Any real MCP host
+
+## Inactive legacy paths
+
+The complete list is in `BOLT-HANDOFF.md` ("Inactive legacy paths"). None of these files are imported, built, tested or deployed.
+
+## Validation order (next phase, needs authorization)
+
+1. `npm install`, then commit `package-lock.json`. Reconcile the candidate pins with real package metadata and types.
+2. `npm run build:view`, then `npm run typecheck`. Fix only the errors reported.
+3. `npm test`. If happy-dom cannot execute the exact bundle, record the harness layer as **blocked** and move to the browser checks.
+4. `npm run build`, then `npm run test:stdio`.
+5. `npm run measure:replay`. Record the output with versions and hashes.
+6. Claim a port (agent-ports), serve `dist/`, then run BROWSER-01 (`tests/e2e/README.md`).
+7. Name one local, stdio-capable MCP Apps host and version, then run HOST-01.
